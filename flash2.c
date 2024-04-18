@@ -20,6 +20,7 @@
 #define DISABLE 0
 #define E_OK 0
 #define E_GENERAL -1
+#define E_EXIT -2
 
 
 int fBackground = DISABLE;
@@ -27,11 +28,19 @@ int ec = E_OK;
 
 int TokenizeString(const char *const str, char ***arr, const char * re, int);
 int ProcessCommandLine(char *commandLine);
+int ProcessSingleCommand(char *command);
+int ProcessPipes(char *command, char ***outputSplit);
+int CreateEnvironment();
+
+int ExecuteCommandInBackground(char **arguments, int *returnValue);
+char ** GetEnvPath(char **options);
+char * environment;
 void RemoveEscapeSpace(char *str);
 
 int 
 main(int argc, char *argv[])
 {
+    CreateEnvironment();
     char inputCommand[MAX_SIZE];
     while(1)
     {
@@ -39,10 +48,15 @@ main(int argc, char *argv[])
         fgets(inputCommand, MAX_SIZE, stdin);
         inputCommand[strlen(inputCommand) - 1] = '\0';
         ec = ProcessCommandLine(inputCommand);
-        if (ec == -1)
+        if (ec == E_EXIT)
             break;
 
     }
+}
+
+int CreateEnvironment()
+{
+    environment = getenv("PATH");
 }
 
 int 
@@ -61,7 +75,9 @@ ProcessCommandLine(char *commandLine)
             return numberOfPipes;
         else if (numberOfPipes == 1)
         {
-
+            ec = ProcessSingleCommand(pipes[0]);
+            if (ec == E_EXIT)
+                return E_EXIT;
         }
     }
     
@@ -76,9 +92,12 @@ ProcessSingleCommand(char *command)
     int numberOfCommands = TokenizeString(command, &commandOptions, spaceRegEx, TRUE);
     if (numberOfCommands < 0)
         return numberOfCommands;
-    realloc(commandOptions, numberOfCommands + 1);
+    if(strcmp(commandOptions[0], EXIT) == 0)
+        return E_EXIT;
+    commandOptions = (char **) realloc(commandOptions, (3) * sizeof(char *));
     commandOptions[numberOfCommands] = NULL;
     int processReturnValue;
+    commandOptions = GetEnvPath(commandOptions);        
     int returnValue = ExecuteCommandInBackground(commandOptions, &processReturnValue);
     if (returnValue != 0)
     {
@@ -90,7 +109,7 @@ ProcessSingleCommand(char *command)
 int
 ProcessPipes(char *command, char ***outputSplit)
 {
-    const char *pipingRegex = "[^,]+ *";
+    const char *pipingRegex = "[^—]+ *";
     int numberOfPipes = TokenizeString(command, outputSplit, pipingRegex, FALSE);
     if (numberOfPipes < 0)
         return numberOfPipes;
@@ -144,6 +163,38 @@ TokenizeString(const char *const str, char ***arr, const char *re, int removeSpa
     return arraySize;
 }
 
+char ** GetEnvPath(char **options)
+{
+    if(strchr(options[0], '/')!= NULL)
+    {
+        return options;
+    }
+    else
+    {
+        char *command = options[0];
+        int found = 0;
+        char *token, *saveptr;
+        char envPath[strlen(environment)];
+        strcpy(envPath, environment);
+        token = strtok(envPath, ":");
+        while(token!=NULL)
+        {
+            int commandLength = strlen(token) + strlen(command) + 2;
+            char *fullCommmand = (char *) malloc(commandLength);
+            snprintf(fullCommmand, commandLength, "%s/%s", token, command);
+            if (access(fullCommmand, X_OK) == 0)
+            {
+                found = 1;
+                options[0] = fullCommmand;
+                return options;
+            }
+            token = strtok(NULL, ":");
+     
+        }
+        return options;
+    }
+}
+
 void RemoveEscapeSpace(char *str) 
 {
     int i, j;
@@ -159,12 +210,13 @@ void RemoveEscapeSpace(char *str)
 int
 ExecuteCommandInBackground(char **arguments, int *returnValue)
 {
+    char *path = arguments[0];
     int pid = fork();
     if (pid == -1)
         return errno;
     else if (pid == 0)
     {
-        ec = execv(arguments[0], arguments + 1);
+        ec = execv(path, arguments);
         return errno;
     }
     else
