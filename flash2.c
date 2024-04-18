@@ -5,11 +5,12 @@
 #include    <unistd.h>
 #include    <sys/types.h>
 #include    <sys/wait.h>
+#include <sys/utsname.h>
 #include    <errno.h>
 #include    <string.h>
+#include <limits.h>
 
-
-
+#define HASH "#"
 #define MAX_SIZE 1024
 #define EXIT "exit"
 #define ARRAY_SIZE(arr) (sizeof((arr)) / sizeof((arr)[0]))
@@ -21,7 +22,7 @@
 #define E_OK 0
 #define E_GENERAL -1
 #define E_EXIT -2
-
+#define CD "cd"
 
 int fBackground = DISABLE;
 int ec = E_OK;
@@ -31,20 +32,35 @@ int ProcessCommandLine(char *commandLine);
 int ProcessSingleCommand(char *command);
 int ProcessPipes(char *command, char ***outputSplit);
 int CreateEnvironment();
-
-int ExecuteCommandInBackground(char **arguments, int *returnValue);
+int ExecuteCommandInBackground(char **arguments);
+int ExecuteCommandInForeground(char **arguments, int *returnValue);
 char ** GetEnvPath(char **options);
 char * environment;
 void RemoveEscapeSpace(char *str);
+char *hostName;
+
 
 int 
 main(int argc, char *argv[])
 {
+    char *workingDirectory;
+    char *user;
     CreateEnvironment();
     char inputCommand[MAX_SIZE];
+    struct utsname info;
+
+    if (uname(&info) == 0) {
+        hostName = info.nodename;
+    }
     while(1)
     {
-        printf("> ");
+        RESTART:
+        workingDirectory = getcwd(workingDirectory, MAX_SIZE);
+        if (workingDirectory == NULL)
+            goto RESTART;
+        user = getlogin();
+        // printf("%s@%s:%s$ ", user, host, workingDirectory);
+        printf("%s@%s:%s$ ", user, hostName, workingDirectory);
         fgets(inputCommand, MAX_SIZE, stdin);
         inputCommand[strlen(inputCommand) - 1] = '\0';
         ec = ProcessCommandLine(inputCommand);
@@ -57,6 +73,7 @@ main(int argc, char *argv[])
 int CreateEnvironment()
 {
     environment = getenv("PATH");
+    // hostName = getenv("HOSTNAME");
 }
 
 int 
@@ -80,8 +97,60 @@ ProcessCommandLine(char *commandLine)
                 return E_EXIT;
         }
     }
-    
+}
 
+int
+ProcessMultiplePipes(char **pipes, int numberOfPipes)
+{
+    char ***pipeCommands = (char ***) malloc(numberOfPipes * sizeof(char **));
+    for (int i = 0; i < numberOfPipes; i ++)
+    {
+        char **commandOptions = PreprocessCommandsForPipe(pipes[i]);
+        if (commandOptions == NULL)
+        {
+            free(pipeCommands);
+            return -1;
+        }
+        else
+        {
+            pipeCommands[i] = commandOptions;
+        }
+    }
+    PipedExecution(pipeCommands);
+}
+
+int PipedExecution(char ***pipeCommandList)
+{
+    
+}
+char **PreprocessCommandsForPipe(char * command)
+{
+    char **commandOptions;
+    char *spaceRegEx = "(([^ ]+([\\] )*)+)|(\"[^\"]*\")";
+    int numberOfCommands = TokenizeString(command, &commandOptions, spaceRegEx, TRUE);
+    if (numberOfCommands < 0)
+        return numberOfCommands;
+    if(strcmp(commandOptions[0], EXIT) == 0 && numberOfCommands == 1)
+    {
+        perror("\nCannot exit while attempting to pipe.\n");
+        return NULL;
+    }
+    else if (strcmp(commandOptions[0], CD) == 0 && numberOfCommands == 2)
+    {
+        perror("\nCannot change directory while attempting to pipe.\n");
+        return NULL;
+    }
+    commandOptions = (char **) realloc(commandOptions, (3) * sizeof(char *));
+    commandOptions[numberOfCommands] = NULL;
+    
+    commandOptions = GetEnvPath(commandOptions);  
+
+    if (strcmp(commandOptions[numberOfCommands - 1], HASH) == 0)
+    {
+        perror("\nUnexpected pipe symbol while attempting to run in background\n");
+        return NULL;
+    }
+    return commandOptions;
 }
 
 int
@@ -92,17 +161,42 @@ ProcessSingleCommand(char *command)
     int numberOfCommands = TokenizeString(command, &commandOptions, spaceRegEx, TRUE);
     if (numberOfCommands < 0)
         return numberOfCommands;
-    if(strcmp(commandOptions[0], EXIT) == 0)
+    if(strcmp(commandOptions[0], EXIT) == 0 && numberOfCommands == 1)
         return E_EXIT;
+    else if (strcmp(commandOptions[0], CD) == 0 && numberOfCommands == 2)
+    {
+        char currentWorkingDirectory[1024];
+
+        int result = chdir(commandOptions[1]);
+
+        if (result == -1)
+        {
+            return errno;
+        }
+        return E_OK;
+    }
     commandOptions = (char **) realloc(commandOptions, (3) * sizeof(char *));
     commandOptions[numberOfCommands] = NULL;
-    int processReturnValue;
-    commandOptions = GetEnvPath(commandOptions);        
-    int returnValue = ExecuteCommandInBackground(commandOptions, &processReturnValue);
-    if (returnValue != 0)
+    
+    commandOptions = GetEnvPath(commandOptions);  
+
+    if (strcmp(commandOptions[numberOfCommands - 1], HASH) == 0)
     {
-        return returnValue;
+        commandOptions[numberOfCommands - 1] = NULL;
+        ExecuteCommandInBackground(commandOptions);
+
     }
+    else
+    {
+        int processReturnValue;
+ 
+        int returnValue = ExecuteCommandInForeground(commandOptions, &processReturnValue);
+        if (returnValue != 0)
+        {
+            return returnValue;
+        }
+    }
+   
     return E_OK;
 }
 
@@ -208,7 +302,7 @@ void RemoveEscapeSpace(char *str)
 }
 
 int
-ExecuteCommandInBackground(char **arguments, int *returnValue)
+ExecuteCommandInBackground(char **arguments)
 {
     char *path = arguments[0];
     int pid = fork();
@@ -217,7 +311,26 @@ ExecuteCommandInBackground(char **arguments, int *returnValue)
     else if (pid == 0)
     {
         ec = execv(path, arguments);
+        printf("Could not find any such command: %s\n", path);
+        exit(errno);
+    }
+    else
+    {
+        return E_OK;
+    }
+}
+int
+ExecuteCommandInForeground(char **arguments, int *returnValue)
+{
+    char *path = arguments[0];
+    int pid = fork();
+    if (pid == -1)
         return errno;
+    else if (pid == 0)
+    {
+        ec = execv(path, arguments);
+        printf("Could not find any such command: %s\n", path);
+        exit(errno);
     }
     else
     {
@@ -236,20 +349,20 @@ ExecuteCommandInBackground(char **arguments, int *returnValue)
                     retVal = WEXITSTATUS(wstatusg); //finds exit status of child if not 0
                     if (retVal == E_OK)
                         return E_OK;
-                    snprintf(buffer, MAX_SIZE, "%s: %d %s - %d", "The process with pid", pid, "exited with error code", retVal);
+                    snprintf(buffer, MAX_SIZE, "%s: %d %s - %d\n", "The process with pid", pid, "exited with error code", retVal);
                     write(STDOUT_FILENO, buffer, strlen(buffer));
                     return E_OK; //Design choice to print child exit status and return parent exit code
                 }
                 else if (WIFSIGNALED(wstatusg))
                 {
                     signalCode = WTERMSIG(wstatusg);
-                    snprintf(buffer, MAX_SIZE,  "%s: %d %s - %d", "The process with pid", pid, "signalled with signal code", signalCode);
+                    snprintf(buffer, MAX_SIZE,  "%s: %d %s - %d\n", "The process with pid", pid, "signalled with signal code", signalCode);
                     write(STDOUT_FILENO, buffer, strlen(buffer));
                     return E_OK;
                 }
                 else if (__WCOREDUMP(wstatusg))
                 {
-                    snprintf(buffer, MAX_SIZE, "%s: %d %s", "The process with pid", pid, "was core dumped");
+                    snprintf(buffer, MAX_SIZE, "%s: %d %s\n", "The process with pid", pid, "was core dumped");
                     return E_OK;
                 }
             }
