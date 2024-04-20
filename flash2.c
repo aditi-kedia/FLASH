@@ -22,6 +22,15 @@
 #define ANSI_COLOR_CYAN    "\x1b[36m"
 #define ANSI_COLOR_RESET   "\x1b[0m"
 
+#define OUTPUT_REDIRECTION ">"
+#define INPUT_REDIRECTION "<"
+#define ERROR_REDIRECTION "2>"
+
+#define OUTPUT_REDIRECTION_APPEND ">>"
+#define INPUT_REDIRECTION_APPEND "<<"
+#define ERROR_REDIRECTION_APPEND "2>>"
+
+
 #define HASH "#"
 #define MAX_SIZE 1024
 #define EXIT "exit"
@@ -34,6 +43,7 @@
 #define E_OK 0
 #define E_GENERAL -1
 #define E_EXIT -2
+#define E_INCORRECT_ARGS -3
 #define CD "cd"
 
 int fBackground = DISABLE;
@@ -44,8 +54,8 @@ int ProcessCommandLine(char *commandLine);
 int ProcessSingleCommand(char *command);
 int ProcessPipes(char *command, char ***outputSplit);
 int CreateEnvironment();
-int ExecuteCommandInBackground(char **arguments);
-int ExecuteCommandInForeground(char **arguments, int *returnValue);
+int ExecuteCommandInBackground(char **arguments, int numberOfCommands);
+int ExecuteCommandInForeground(char **arguments, int *returnValue, int numberOfCommands);
 char ** GetEnvPath(char **options);
 char **PreprocessCommandsForPipe(char *command);
 char * environment;
@@ -54,6 +64,7 @@ void RemoveEscapeSpace(char *str);
 char *hostName;
 int PipedExecution(char ***pipeCommandList, int numberOfPipes);
 int PipeExecutables(char ***pipeArray);
+char **RedirectionCheck(char **arguments, int *outfd, int *infd, int *errfd, int numberOfArguments);
 
 int 
 main(int argc, char *argv[])
@@ -255,7 +266,7 @@ char **PreprocessCommandsForPipe(char *command)
     
     commandOptions = GetEnvPath(commandOptions);  
 
-    if (strcmp(commandOptions[numberOfCommands - 1], HASH) == 0)
+    if (strcmp(commandOptions[numberOfCommands - 1], HASH) == 0) //TODO: Regex instead of comparison
     {
         perror("\nUnexpected pipe symbol while attempting to run in background\n");
         return NULL;
@@ -295,14 +306,13 @@ ProcessSingleCommand(char *command)
     if (strcmp(commandOptions[numberOfCommands - 1], HASH) == 0)
     {
         commandOptions[numberOfCommands - 1] = NULL;
-        ExecuteCommandInBackground(commandOptions);
-
+        ExecuteCommandInBackground(commandOptions, numberOfCommands);
     }
     else
     {
         int processReturnValue;
  
-        int returnValue = ExecuteCommandInForeground(commandOptions, &processReturnValue);
+        int returnValue = ExecuteCommandInForeground(commandOptions, &processReturnValue, numberOfCommands + 1);
         if (returnValue != 0)
         {
             return returnValue;
@@ -414,14 +424,44 @@ void RemoveEscapeSpace(char *str)
 }
 
 int
-ExecuteCommandInBackground(char **arguments)
+ExecuteCommandInBackground(char **arguments, int numberOfArguments)
 {
-    char *path = arguments[0];
     int pid = fork();
     if (pid == -1)
         return errno;
     else if (pid == 0)
     {
+        int outfd = STDOUT_FILENO;
+        int infd = STDIN_FILENO;
+        int errfd = STDERR_FILENO;
+        arguments = RedirectionCheck(arguments, &outfd, &infd, &errfd, numberOfArguments);
+
+        if (outfd != STDOUT_FILENO)
+        {
+            if (dup2(outfd, STDOUT_FILENO) == -1)
+            {
+                return errno;
+            }
+        }
+        if (infd != STDIN_FILENO)
+        {
+            if (dup2(infd, STDIN_FILENO) == -1)
+            {
+                return errno;
+            }
+        }
+        if (errfd != STDERR_FILENO)
+        {
+            if (dup2(errfd, STDERR_FILENO) == -1)
+            {
+                return errno;
+            }
+        }
+
+        if (arguments == NULL)
+            return -3;
+        
+        char *path = arguments[0];
         ec = execv(path, arguments);
         printf("Could not find any such command: %s\n", path);
         exit(errno);
@@ -432,14 +472,43 @@ ExecuteCommandInBackground(char **arguments)
     }
 }
 int
-ExecuteCommandInForeground(char **arguments, int *returnValue)
+ExecuteCommandInForeground(char **arguments, int *returnValue, int numberOfArguments)
 {
-    char *path = arguments[0];
     int pid = fork();
     if (pid == -1)
         return errno;
     else if (pid == 0)
     {
+        int outfd = STDOUT_FILENO;
+        int infd = STDIN_FILENO;
+        int errfd = STDERR_FILENO;
+        arguments = RedirectionCheck(arguments, &outfd, &infd, &errfd, numberOfArguments);
+
+        if (outfd != STDOUT_FILENO)
+        {
+            if (dup2(outfd, STDOUT_FILENO) == -1)
+            {
+                return errno;
+            }
+        }
+        if (infd != STDIN_FILENO)
+        {
+            if (dup2(outfd, STDIN_FILENO) == -1)
+            {
+                return errno;
+            }
+        }
+        if (errfd != STDERR_FILENO)
+        {
+            if (dup2(outfd, STDERR_FILENO) == -1)
+            {
+                return errno;
+            }
+        }
+
+        if (arguments == NULL)
+            return -3;
+        char *path = arguments[0];
         ec = execv(path, arguments);
         printf("Could not find any such command: %s\n", path);
         exit(errno);
@@ -574,4 +643,100 @@ PipeExecutables(char ***pipeCommands)
             return E_OK;
         }
     }
+}
+
+char **RedirectionCheck(char **arguments, int *outfd, int *infd, int *errfd, int numberOfArguments)
+{
+    char **finalArguments = (char **) malloc (numberOfArguments * sizeof(char *));
+    int j = 0;
+    //TODO: replace this with a switch case on a hashmap and enum
+    for (int i = 0; i < numberOfArguments - 1;)
+    {
+        if (strcmp(arguments[i], OUTPUT_REDIRECTION) == 0)
+        {
+            if (i + 1 < numberOfArguments)
+            {
+                *outfd = open(arguments[i + 1], O_WRONLY);
+                i += 2;
+            }
+            else
+            {
+                perror("Syntax error: please mention path to redirect to");
+                return NULL;
+            }
+        }
+        else if (strcmp(arguments[i], OUTPUT_REDIRECTION_APPEND) == 0)
+        {
+            if (i + 1 < numberOfArguments)
+            {
+                *outfd = open(arguments[i + 1], O_WRONLY | O_APPEND);
+                i += 2;
+            }
+            else
+            {
+                perror("Syntax error: please mention path to redirect to");
+                return NULL;
+            }
+        }
+        else if (strcmp(arguments[i], INPUT_REDIRECTION) == 0)
+        {
+            if (i + 1 < numberOfArguments)
+            {
+                *infd = open(arguments[i + 1], O_RDONLY);
+                i += 2;
+            }
+            else
+            {
+                perror("Syntax error: please mention path to redirect to");
+                return NULL;
+            }
+        }
+        else if (strcmp(arguments[i], INPUT_REDIRECTION_APPEND) == 0)
+        {
+            if (i + 1 < numberOfArguments)
+            {
+                *infd = open(arguments[i + 1], O_RDONLY | O_APPEND);
+                i += 2;
+            }
+            else
+            {
+                perror("Syntax error: please mention path to redirect to");
+                return NULL;
+            }
+        }
+        else if (strcmp(arguments[i], ERROR_REDIRECTION) == 0)
+        {
+            if (i + 1 < numberOfArguments)
+            {
+                *errfd = open(arguments[i + 1], O_WRONLY);
+                i += 2;
+            }
+            else
+            {
+                perror("Syntax error: please mention path to redirect to");
+                return NULL;
+            }
+        }
+        else if (strcmp(arguments[i], ERROR_REDIRECTION_APPEND) == 0)
+        {
+            if (i + 1 < numberOfArguments)
+            {
+                *errfd = open(arguments[i + 1], O_WRONLY | O_APPEND);
+                i += 2;
+            }
+            else
+            {
+                perror("Syntax error: please mention path to redirect to");
+                return NULL;
+            }
+        }
+        else
+        {
+            finalArguments[j] = arguments[i];
+            i++;
+            j++;
+        }
+    }
+    finalArguments[j] = NULL;
+    return finalArguments;
 }

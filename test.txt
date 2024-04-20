@@ -1,0 +1,15 @@
+total 164
+-rwxrwxr-x 1 prajas prajas 17584 Apr 18 15:13 cd
+-rw-rw-r-- 1 prajas prajas   229 Apr 18 15:13 cd.c
+-rwxrwxr-x 1 prajas prajas 19248 Apr 12 11:37 flash
+-rwxrwxr-x 1 prajas prajas 31392 Apr 20 11:21 flash2
+-rw-rw-r-- 1 prajas prajas 17887 Apr 20 11:21 flash2.c
+-rw-rw-r-- 1 prajas prajas  5647 Apr 16 00:07 flash.c
+drwxrwxr-x 2 prajas prajas  4096 Apr 18 22:05 hello
+-rw-rw-r-- 1 prajas prajas  1068 Apr 10 12:03 LICENSE
+-rw-rw-r-- 1 prajas prajas     7 Apr 10 12:03 README.md
+-rwxrwxr-x 1 prajas prajas 17488 Apr 20 12:08 simpletest
+-rw-rw-r-- 1 prajas prajas   116 Apr 20 12:08 simpletest.c
+-rwxrwxr-x 1 prajas prajas 17264 Apr 18 19:25 test
+-rw-rw-r-- 1 prajas prajas   178 Apr 18 19:24 test.c
+-rw-rw-r-- 1 prajas prajas     0 Apr 20 12:09 test.txt
