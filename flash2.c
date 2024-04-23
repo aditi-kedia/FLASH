@@ -14,14 +14,6 @@
 #include <fcntl.h>
 
 
-#define ANSI_COLOR_RED     "\x1b[31m"
-#define ANSI_COLOR_GREEN   "\x1b[32m"
-#define ANSI_COLOR_YELLOW  "\x1b[33m"
-#define ANSI_COLOR_BLUE    "\x1b[34m"
-#define ANSI_COLOR_MAGENTA "\x1b[35m"
-#define ANSI_COLOR_CYAN    "\x1b[36m"
-#define ANSI_COLOR_RESET   "\x1b[0m"
-
 #define OUTPUT_REDIRECTION ">"
 #define INPUT_REDIRECTION "<"
 #define ERROR_REDIRECTION "2>"
@@ -34,6 +26,8 @@
 #define HASH "#"
 #define MAX_SIZE 1024
 #define EXIT "exit"
+#define SET "set"
+#define GET "get"
 #define ARRAY_SIZE(arr) (sizeof((arr)) / sizeof((arr)[0]))
 
 #define ENABLE 1
@@ -49,6 +43,19 @@
 int fBackground = DISABLE;
 int ec = E_OK;
 
+
+struct HashTable {
+    struct Node **HashTable;
+    int numberOfElements, capacity;
+};
+
+struct Node{
+    char *key;
+    char *value;
+    struct Node *next;
+};
+
+ 
 int TokenizeString(const char *const str, char ***arr, const char * re, int);
 int ProcessCommandLine(char *commandLine);
 int ProcessSingleCommand(char *command);
@@ -56,7 +63,9 @@ int ProcessPipes(char *command, char ***outputSplit);
 int CreateEnvironment();
 int ExecuteCommandInBackground(char **arguments, int numberOfCommands);
 int ExecuteCommandInForeground(char **arguments, int *returnValue, int numberOfCommands);
-char ** GetEnvPath(char **options);
+char **GetEnvPath(char **options);
+int SetEnvironmentVariable(char **);
+int GetEnvironmentVariable(char **);
 char **PreprocessCommandsForPipe(char *command);
 char * environment;
 int ProcessMultiplePipes(char **pipes, int numberOfPipes);
@@ -65,6 +74,14 @@ char *hostName;
 int PipedExecution(char ***pipeCommandList, int numberOfPipes);
 int PipeExecutables(char ***pipeArray);
 char **RedirectionCheck(char **arguments, int *outfd, int *infd, int *errfd, int numberOfArguments);
+void setNode(struct Node* node, char* key, char* value);
+void initializeHashMap(struct HashTable* mp);
+int hashFunction(struct HashTable* mp, char* key);
+void insert(struct HashTable* mp, char* key, char* value);
+void delete (struct HashTable* mp, char* key);
+char* search(struct HashTable* mp, char* key);
+
+int err = E_OK;
 
 int 
 main(int argc, char *argv[])
@@ -132,7 +149,7 @@ ProcessCommandLine(char *commandLine)
 int
 ProcessMultiplePipes(char **pipes, int numberOfPipes)
 {
-    char ***pipeCommands = (char ***) malloc(numberOfPipes * sizeof(char **));
+    char ***pipeCommands = (char ***) malloc((numberOfPipes + 1) * sizeof(char **));
     for (int i = 0; i < numberOfPipes; i ++)
     {
         char **commandOptions = PreprocessCommandsForPipe(pipes[i]);
@@ -146,101 +163,82 @@ ProcessMultiplePipes(char **pipes, int numberOfPipes)
             pipeCommands[i] = commandOptions;
         }
     }
-    if (numberOfPipes == 2)
-    {
-        PipeExecutables(pipeCommands);
-    }
-    else 
-    {
-        PipedExecution(pipeCommands, numberOfPipes);
-    }
+    pipeCommands[numberOfPipes] = NULL;
+     
+    PipedExecution(pipeCommands, numberOfPipes);
 }
 
 int PipedExecution(char ***pipeCommandList, int numberOfPipes)
 {
-    // for (int i = 0; i < numberOfPipes; i++)
-    // {
-    //     if (i == 0)
-    //     {
-    //         int fd[2];
-    //         ec = pipe(fd);
-    //         if (ec == E_GENERAL)
-    //             return errno;
+    int fd[2];
+	pid_t pid;
+	int fdd = 0;				/* Backup */
 
-    //         int pidc = fork();
-    //         if (pidc == E_GENERAL)
-    //             return errno; 
-    //         else if (pidc == 0)
-    //         {
-    //             ec = dup2(fd[0], STDIN_FILENO);
-    //             if (ec == E_GENERAL)
-    //                 return errno;
+	while (*pipeCommandList != NULL) {
+		pipe(fd);				/* Sharing bidiflow */
+		if ((pid = fork()) == -1) {
+			perror("fork");
+            exit(errno);
+		}
+		else if (pid == 0) {
+			dup2(fdd, 0);
+			if (*(pipeCommandList + 1) != NULL) {
+				dup2(fd[1], 1);
+			}
+			close(fd[0]);
+			execv((*pipeCommandList)[0], *pipeCommandList);
+			exit(errno);
+		}
+		else 
+        {
+            int retVal = 0;
+            char buffer[MAX_SIZE];
+            int signalCode;
+            int wstatusg;
+            if (*(pipeCommandList + 1) == NULL)
+            {
+                int w = waitpid(pid, &wstatusg, WUNTRACED);
+                if (w == E_GENERAL)
+                    return errno;
 
-    //             ec = close(fd[1]);
-    //             if (ec == E_GENERAL)
-    //                 return errno;
-                
-    //             ec = execv(consumerExecutablePath, consumerArguments);
-    //             return errno; //only returns if error occurred in execv() system call
-    //         }
-    //         else
-    //         {
-    //             int pidg = fork();
-    //             if (pidg == -1)
-    //                 return errno;
-    //             else if (pidg == 0)
-    //             {
-    //                 ec = dup2(fd[1], STDOUT_FILENO);
-    //                 if (ec == E_GENERAL)
-    //                     return errno;
-                    
-    //                 ec = close(fd[0]);
-    //                 if (ec == E_GENERAL)
-    //                     return errno;
-
-    //                 ec = execv(generatorExecutablePath, generatorArguments);
-    //                 return errno;
-    //             }
-    //             else
-    //             {
-    //                 int retVal = 0;
-    //                 char buffer[MAX_SIZE];
-    //                 int signalCode;
-    //                 int wstatusg;
-    //                 int w = waitpid(pidg, &wstatusg, WUNTRACED);
-    //                 if (w == E_GENERAL)
-    //                     return errno;
-
-    //                 if (&wstatusg != NULL)
-    //                 {
-    //                     if (WIFEXITED(wstatusg))
-    //                     {
-    //                         retVal = WEXITSTATUS(wstatusg); //finds exit status of child if not 0
-    //                         if (retVal == E_OK)
-    //                             return E_OK;
-    //                         snprintf(buffer, MAX_SIZE, "%s: %d %s - %d", "The process with pid", pidg, "exited with error code", retVal);
-    //                         write(STDOUT_FILENO, buffer, strlen(buffer));
-    //                         return E_OK; //Design choice to print child exit status and return parent exit code
-    //                     }
-    //                     else if (WIFSIGNALED(wstatusg))
-    //                     {
-    //                         signalCode = WTERMSIG(wstatusg);
-    //                         snprintf(buffer, MAX_SIZE,  "%s: %d %s - %d", "The process with pid", pidg, "signalled with signal code", signalCode);
-    //                         write(STDOUT_FILENO, buffer, strlen(buffer));
-    //                         return E_OK;
-    //                     }
-    //                     else if (__WCOREDUMP(wstatusg))
-    //                     {
-    //                         snprintf(buffer, MAX_SIZE, "%s: %d %s", "The process with pid", pidg, "was core dumped");
-    //                         return E_OK;
-    //                     }
-    //                 }
-    //                 return E_OK;
-    //             }
-    //         }
-    //     }
-        
-    // }
+                if (&wstatusg != NULL)
+                {
+                    if (WIFEXITED(wstatusg))
+                    {
+                        retVal = WEXITSTATUS(wstatusg); //finds exit status of child if not 0
+                        if (retVal == E_OK)
+                            return E_OK;
+                        snprintf(buffer, MAX_SIZE, "%s: %d %s - %d\n", "The process with pid", pid, "exited with error code", retVal);
+                        write(STDOUT_FILENO, buffer, strlen(buffer));
+                        return E_OK; //Design choice to print child exit status and return parent exit code
+                    }
+                    else if (WIFSIGNALED(wstatusg))
+                    {
+                        signalCode = WTERMSIG(wstatusg);
+                        snprintf(buffer, MAX_SIZE,  "%s: %d %s - %d\n", "The process with pid", pid, "signalled with signal code", signalCode);
+                        write(STDOUT_FILENO, buffer, strlen(buffer));
+                        return E_OK;
+                    }
+                    else if (__WCOREDUMP(wstatusg))
+                    {
+                        snprintf(buffer, MAX_SIZE, "%s: %d %s\n", "The process with pid", pid, "was core dumped");
+                        return E_OK;
+                    }
+                }
+                close(fd[1]);
+                fdd = fd[0];
+                pipeCommandList++;
+		    }
+            else
+            {
+                wait(NULL);
+                close(fd[1]);
+                fdd = fd[0];
+                pipeCommandList++;
+            }
+	    }
+    }
+    return E_OK;
 }
 char **PreprocessCommandsForPipe(char *command)
 {
@@ -286,6 +284,20 @@ ProcessSingleCommand(char *command)
         return E_GENERAL;
     if(strcmp(commandOptions[0], EXIT) == 0 && numberOfCommands == 1)
         return E_EXIT;
+    else if (strcmp(commandOptions[0], SET) == 0)
+    {
+        if (numberOfCommands == 2)
+            ec = SetEnvironmentVariable(commandOptions + 1);
+        else
+            return -4;
+    }
+    else if (strcmp(commandOptions[0], GET) == 0)
+    {
+        if (numberOfCommands == 2)
+            ec = GetEnvironmentVariable(commandOptions + 1);
+        else
+            return -4;
+    }
     else if (strcmp(commandOptions[0], CD) == 0 && numberOfCommands == 2)
     {
         char currentWorkingDirectory[1024];
@@ -371,8 +383,15 @@ TokenizeString(const char *const str, char ***arr, const char *re, int removeSpa
         }
         if (removeSpace)
             RemoveEscapeSpace(buf);
+        if (buf[0] == ' ' && strlen(buf) == 1)
+        {
+            arraySize --;
+            s += pmatch[0].rm_eo;
+            continue;
+        }
         if (buf != " ")
             array[arraySize - 1] = buf;
+        
         s += pmatch[0].rm_eo;
     }
     *arr = array;
@@ -405,7 +424,6 @@ char ** GetEnvPath(char **options)
                 return options;
             }
             token = strtok(NULL, ":");
-     
         }
         return options;
     }
@@ -516,38 +534,38 @@ ExecuteCommandInForeground(char **arguments, int *returnValue, int numberOfArgum
     else
     {
         int retVal = 0;
-            char buffer[MAX_SIZE];
-            int signalCode;
-            int wstatusg;
-            int w = waitpid(pid, &wstatusg, WUNTRACED);
-            if (w == E_GENERAL)
-                return errno;
+        char buffer[MAX_SIZE];
+        int signalCode;
+        int wstatusg;
+        int w = waitpid(pid, &wstatusg, WUNTRACED);
+        if (w == E_GENERAL)
+            return errno;
 
-            if (&wstatusg != NULL)
+        if (&wstatusg != NULL)
+        {
+            if (WIFEXITED(wstatusg))
             {
-                if (WIFEXITED(wstatusg))
-                {
-                    retVal = WEXITSTATUS(wstatusg); //finds exit status of child if not 0
-                    if (retVal == E_OK)
-                        return E_OK;
-                    snprintf(buffer, MAX_SIZE, "%s: %d %s - %d\n", "The process with pid", pid, "exited with error code", retVal);
-                    write(STDOUT_FILENO, buffer, strlen(buffer));
-                    return E_OK; //Design choice to print child exit status and return parent exit code
-                }
-                else if (WIFSIGNALED(wstatusg))
-                {
-                    signalCode = WTERMSIG(wstatusg);
-                    snprintf(buffer, MAX_SIZE,  "%s: %d %s - %d\n", "The process with pid", pid, "signalled with signal code", signalCode);
-                    write(STDOUT_FILENO, buffer, strlen(buffer));
+                retVal = WEXITSTATUS(wstatusg); //finds exit status of child if not 0
+                if (retVal == E_OK)
                     return E_OK;
-                }
-                else if (__WCOREDUMP(wstatusg))
-                {
-                    snprintf(buffer, MAX_SIZE, "%s: %d %s\n", "The process with pid", pid, "was core dumped");
-                    return E_OK;
-                }
+                snprintf(buffer, MAX_SIZE, "%s: %d %s - %d\n", "The process with pid", pid, "exited with error code", retVal);
+                write(STDOUT_FILENO, buffer, strlen(buffer));
+                return E_OK; //Design choice to print child exit status and return parent exit code
             }
-            return E_OK;
+            else if (WIFSIGNALED(wstatusg))
+            {
+                signalCode = WTERMSIG(wstatusg);
+                snprintf(buffer, MAX_SIZE,  "%s: %d %s - %d\n", "The process with pid", pid, "signalled with signal code", signalCode);
+                write(STDOUT_FILENO, buffer, strlen(buffer));
+                return E_OK;
+            }
+            else if (__WCOREDUMP(wstatusg))
+            {
+                snprintf(buffer, MAX_SIZE, "%s: %d %s\n", "The process with pid", pid, "was core dumped");
+                return E_OK;
+            }
+        }
+        return E_OK;
     }
 }
 
@@ -584,6 +602,8 @@ PipeExecutables(char ***pipeCommands)
             return errno;
         
         ec = execv(consumerExecutablePath, consumerArguments);
+
+        exit(errno);
         return errno; //only returns if error occurred in execv() system call
     }
     else
@@ -602,7 +622,7 @@ PipeExecutables(char ***pipeCommands)
                 return errno;
 
             ec = execv(generatorExecutablePath, generatorArguments);
-            return errno;
+            exit(errno);
         }
         else
         {
@@ -623,20 +643,20 @@ PipeExecutables(char ***pipeCommands)
                     retVal = WEXITSTATUS(wstatusg); //finds exit status of child if not 0
                     if (retVal == E_OK)
                         return E_OK;
-                    snprintf(buffer, MAX_SIZE, "%s: %d %s - %d", "The process with pid", pidg, "exited with error code", retVal);
+                    snprintf(buffer, MAX_SIZE, "\n%s: %d %s - %d\n", "The process with pid", pidg, "exited with error code", retVal);
                     write(STDOUT_FILENO, buffer, strlen(buffer));
                     return E_OK; //Design choice to print child exit status and return parent exit code
                 }
                 else if (WIFSIGNALED(wstatusg))
                 {
                     signalCode = WTERMSIG(wstatusg);
-                    snprintf(buffer, MAX_SIZE,  "%s: %d %s - %d", "The process with pid", pidg, "signalled with signal code", signalCode);
+                    snprintf(buffer, MAX_SIZE,  "\n%s: %d %s - %d\n", "The process with pid", pidg, "signalled with signal code", signalCode);
                     write(STDOUT_FILENO, buffer, strlen(buffer));
                     return E_OK;
                 }
                 else if (__WCOREDUMP(wstatusg))
                 {
-                    snprintf(buffer, MAX_SIZE, "%s: %d %s", "The process with pid", pidg, "was core dumped");
+                    snprintf(buffer, MAX_SIZE, "\n%s: %d %s\n", "The process with pid", pidg, "was core dumped");
                     return E_OK;
                 }
             }
@@ -740,3 +760,161 @@ char **RedirectionCheck(char **arguments, int *outfd, int *infd, int *errfd, int
     finalArguments[j] = NULL;
     return finalArguments;
 }
+
+int GetEnvironmentVariable(char **getCommand)
+{
+    
+}
+int SetEnvironmentVariable(char **setCommand)
+{
+
+}
+int HashValue(char *key, char *value)
+{   
+
+}
+
+void setNode(struct Node* node, char* key, char* value)
+{
+    node->key = key;
+    node->value = value;
+    node->next = NULL;
+    return;
+};
+
+void initializeHashMap(struct HashTable* mp)
+{
+ 
+    // Default capacity in this case
+    mp->capacity = 15;
+    mp->numberOfElements = 0;
+ 
+    // array of size = 1
+    mp->HashTable = (struct Node**)malloc(sizeof(struct Node*)
+                                    * mp->capacity);
+    return;
+}
+
+ 
+int hashFunction(struct HashTable* mp, char* key)
+{
+    int bucketIndex;
+    int sum = 0, factor = 31;
+    for (int i = 0; i < strlen(key); i++) {
+ 
+        // sum = sum + (ascii value of
+        // char * (primeNumber ^ x))...
+        // where x = 1, 2, 3....n
+        sum = ((sum % mp->capacity)
+               + (((int)key[i]) * factor) % mp->capacity)
+              % mp->capacity;
+ 
+        // factor = factor * prime
+        // number....(prime
+        // number) ^ x
+        factor = ((factor % __INT16_MAX__)
+                  * (31 % __INT16_MAX__))
+                 % __INT16_MAX__;
+    }
+ 
+    bucketIndex = sum;
+    return bucketIndex;
+}
+ 
+void insert(struct HashTable* mp, char* key, char* value)
+{
+ 
+    // Getting bucket index for the given
+    // key - value pair
+    int bucketIndex = hashFunction(mp, key);
+    struct Node* newNode = (struct Node*)malloc(
+ 
+        // Creating a new node
+        sizeof(struct Node));
+ 
+    // Setting value of node
+    setNode(newNode, key, value);
+ 
+    // Bucket index is empty....no collision
+    if (mp->HashTable[bucketIndex] == NULL) {
+        mp->HashTable[bucketIndex] = newNode;
+    }
+ 
+    // Collision
+    else {
+ 
+        // Adding newNode at the head of
+        // linked list which is present
+        // at bucket index....insertion at
+        // head in linked list
+        newNode->next = mp->HashTable[bucketIndex];
+        mp->HashTable[bucketIndex] = newNode;
+    }
+    return;
+}
+ 
+void delete (struct HashTable* mp, char* key)
+{
+ 
+    // Getting bucket index for the
+    // given key
+    int bucketIndex = hashFunction(mp, key);
+ 
+    struct Node* prevNode = NULL;
+ 
+    // Points to the head of
+    // linked list present at
+    // bucket index
+    struct Node* currNode = mp->HashTable[bucketIndex];
+ 
+    while (currNode != NULL) {
+ 
+        // Key is matched at delete this
+        // node from linked list
+        if (strcmp(key, currNode->key) == 0) {
+ 
+            // Head node
+            // deletion
+            if (currNode == mp->HashTable[bucketIndex]) {
+                mp->HashTable[bucketIndex] = currNode->next;
+            }
+ 
+            // Last node or middle node
+            else {
+                prevNode->next = currNode->next;
+            }
+            free(currNode);
+            break;
+        }
+        prevNode = currNode;
+        currNode = currNode->next;
+    }
+    return;
+}
+ 
+char* search(struct HashTable* mp, char* key)
+{
+ 
+    // Getting the bucket index
+    // for the given key
+    int bucketIndex = hashFunction(mp, key);
+ 
+    // Head of the linked list
+    // present at bucket index
+    struct Node* bucketHead = mp->HashTable[bucketIndex];
+    while (bucketHead != NULL) {
+ 
+        // Key is found in the hashMap
+        if (bucketHead->key == key) {
+            return bucketHead->value;
+        }
+        bucketHead = bucketHead->next;
+    }
+ 
+    // If no key found in the hashMap
+    // equal to the given key
+    char* errorMssg = (char*)malloc(sizeof(char) * 25);
+    errorMssg = "Oops! No data found.\n";
+    return errorMssg;
+}
+ 
