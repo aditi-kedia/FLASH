@@ -3,8 +3,6 @@
 #include <unistd.h>
 int main()
 {
-    printf("\nStarting Execution\n");
-    sleep(10);
-    printf("\nExecution Finished\n");
-    return 0;
+   printf("%d", 'A' == 66);
+   return 7;
 }

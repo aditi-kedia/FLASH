@@ -13,3 +13,14 @@ drwxrwxr-x 2 prajas prajas  4096 Apr 18 22:05 hello
 -rwxrwxr-x 1 prajas prajas 17264 Apr 18 19:25 test
 -rw-rw-r-- 1 prajas prajas   178 Apr 18 19:24 test.c
 -rw-rw-r-- 1 prajas prajas     0 Apr 20 12:09 test.txt
+    4 -rw-rw-r-- 1 prajas prajas        7 Apr 10 12:03 README.md
+    4 -rw-rw-r-- 1 prajas prajas     1068 Apr 10 12:03 LICENSE
+ajas prajas   818 Apr 24 10:32 output.txt
+-rw-rw-r-- 1 prajas prajas     7 Apr 10 12:03 README.md
+-rwxrwxr-x 1 prajas prajas 17248 Apr 24 10:25 test
+-rw-rw-r-- 1 prajas prajas   101 Apr 24 10:25 test.c
+-rw-rw-r-- 1 prajas prajas     1068 Apr 10 12:03 LICENSE
+-rw-rw-r-- 1 prajas prajas     1636 Apr 24 10:32 output.txt
+-rw-rw-r-- 1 prajas prajas        7 Apr 10 12:03 README.md
+    4 -rw-rw-r-- 1 prajas prajas        7 Apr 10 12:03 README.md
+    4 -rw-rw-r-- 1 prajas prajas     1068 Apr 10 12:03 LICENSE

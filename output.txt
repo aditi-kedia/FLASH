@@ -1,16 +1,67 @@
-total 172
--rwxrwxr-x 1 prajas prajas 17584 Apr 18 15:13 cd
--rw-rw-r-- 1 prajas prajas   229 Apr 18 15:13 cd.c
--rwxrwxr-x 1 prajas prajas 19248 Apr 12 11:37 flash
--rwxrwxr-x 1 prajas prajas 32344 Apr 20 13:16 flash2
--rw-rw-r-- 1 prajas prajas 22720 Apr 20 13:16 flash2.c
--rw-rw-r-- 1 prajas prajas  5647 Apr 16 00:07 flash.c
-drwxrwxr-x 2 prajas prajas  4096 Apr 18 22:05 hello
--rw-rw-r-- 1 prajas prajas  1068 Apr 10 12:03 LICENSE
--rw-rw-r-- 1 prajas prajas     0 Apr 20 13:22 output.txt
+total 12460
+    4 -rw-rw-r-- 1 prajas prajas        7 Apr 10 12:03 README.md
+    4 -rw-rw-r-- 1 prajas prajas     1068 Apr 10 12:03 LICENSE
+   20 -rwxrwxr-x 1 prajas prajas    19248 Apr 12 11:37 flash
+    8 -rw-rw-r-- 1 prajas prajas     5647 Apr 16 00:07 flash.c
+    4 -rw-rw-r-- 1 prajas prajas      229 Apr 18 15:13 cd.c
+   20 -rwxrwxr-x 1 prajas prajas    17584 Apr 18 15:13 cd
+    4 drwxrwxr-x 2 prajas prajas     4096 Apr 18 22:05 hello
+    4 -rw-rw-r-- 1 prajas prajas      761 Apr 20 12:09 test.txt
+   20 -rwxrwxr-x 1 prajas prajas    17240 Apr 20 12:37 simpletest
+    4 -rw-rw-r-- 1 prajas prajas      116 Apr 20 12:44 simpletest.c
+    4 drwxrwxr-x 4 prajas prajas     4096 Apr 22 02:44 ..
+    4 drwxrwxr-x 8 prajas prajas     4096 Apr 23 15:37 .git
+    4 -rw-rw-r-- 1 prajas prajas      114 Apr 24 11:00 test.c
+   20 -rwxrwxr-x 1 prajas prajas    17256 Apr 24 11:00 test
+   28 -rw-rw-r-- 1 prajas prajas    27301 Apr 24 11:39 flash2.c
+  112 -rw-rw-r-- 1 prajas prajas   114351 Apr 24 11:52 flash2.s
+12148 -rw-rw-r-- 1 prajas prajas 12436151 Apr 24 11:53 dissasemble.s
+    4 drwxrwxr-x 4 prajas prajas     4096 Apr 24 12:07 .
+   40 -rwxrwxr-x 1 prajas prajas    39120 Apr 24 12:07 flash2
+    4 -rw-rw-r-- 1 prajas prajas     2622 Apr 24 12:11 output.txt
+ajas prajas   818 Apr 24 10:32 output.txt
 -rw-rw-r-- 1 prajas prajas     7 Apr 10 12:03 README.md
 -rwxrwxr-x 1 prajas prajas 17240 Apr 20 12:37 simpletest
 -rw-rw-r-- 1 prajas prajas   116 Apr 20 12:44 simpletest.c
--rwxrwxr-x 1 prajas prajas 17264 Apr 18 19:25 test
--rw-rw-r-- 1 prajas prajas   178 Apr 18 19:24 test.c
+-rwxrwxr-x 1 prajas prajas 17248 Apr 24 10:25 test
+-rw-rw-r-- 1 prajas prajas   101 Apr 24 10:25 test.c
 -rw-rw-r-- 1 prajas prajas   761 Apr 20 12:09 test.txt
+total 12448
+-rwxrwxr-x 1 prajas prajas    17584 Apr 18 15:13 cd
+-rw-rw-r-- 1 prajas prajas      229 Apr 18 15:13 cd.c
+-rw-rw-r-- 1 prajas prajas 12436151 Apr 24 11:53 dissasemble.s
+-rwxrwxr-x 1 prajas prajas    19248 Apr 12 11:37 flash
+-rwxrwxr-x 1 prajas prajas    39120 Apr 24 12:07 flash2
+-rw-rw-r-- 1 prajas prajas    27301 Apr 24 11:39 flash2.c
+-rw-rw-r-- 1 prajas prajas   114351 Apr 24 11:52 flash2.s
+-rw-rw-r-- 1 prajas prajas     5647 Apr 16 00:07 flash.c
+drwxrwxr-x 2 prajas prajas     4096 Apr 18 22:05 hello
+-rw-rw-r-- 1 prajas prajas     1068 Apr 10 12:03 LICENSE
+-rw-rw-r-- 1 prajas prajas     1636 Apr 24 10:32 output.txt
+-rw-rw-r-- 1 prajas prajas        7 Apr 10 12:03 README.md
+-rwxrwxr-x 1 prajas prajas    17240 Apr 20 12:37 simpletest
+-rw-rw-r-- 1 prajas prajas      116 Apr 20 12:44 simpletest.c
+-rwxrwxr-x 1 prajas prajas    17256 Apr 24 11:00 test
+-rw-rw-r-- 1 prajas prajas      114 Apr 24 11:00 test.c
+-rw-rw-r-- 1 prajas prajas      761 Apr 20 12:09 test.txt
+total 12460
+    4 -rw-rw-r-- 1 prajas prajas        7 Apr 10 12:03 README.md
+    4 -rw-rw-r-- 1 prajas prajas     1068 Apr 10 12:03 LICENSE
+   20 -rwxrwxr-x 1 prajas prajas    19248 Apr 12 11:37 flash
+    8 -rw-rw-r-- 1 prajas prajas     5647 Apr 16 00:07 flash.c
+    4 -rw-rw-r-- 1 prajas prajas      229 Apr 18 15:13 cd.c
+   20 -rwxrwxr-x 1 prajas prajas    17584 Apr 18 15:13 cd
+    4 drwxrwxr-x 2 prajas prajas     4096 Apr 18 22:05 hello
+    4 -rw-rw-r-- 1 prajas prajas      761 Apr 20 12:09 test.txt
+   20 -rwxrwxr-x 1 prajas prajas    17240 Apr 20 12:37 simpletest
+    4 -rw-rw-r-- 1 prajas prajas      116 Apr 20 12:44 simpletest.c
+    4 drwxrwxr-x 4 prajas prajas     4096 Apr 22 02:44 ..
+    4 drwxrwxr-x 8 prajas prajas     4096 Apr 23 15:37 .git
+    4 -rw-rw-r-- 1 prajas prajas      114 Apr 24 11:00 test.c
+   20 -rwxrwxr-x 1 prajas prajas    17256 Apr 24 11:00 test
+   28 -rw-rw-r-- 1 prajas prajas    27301 Apr 24 11:39 flash2.c
+  112 -rw-rw-r-- 1 prajas prajas   114351 Apr 24 11:52 flash2.s
+12148 -rw-rw-r-- 1 prajas prajas 12436151 Apr 24 11:53 dissasemble.s
+    4 drwxrwxr-x 4 prajas prajas     4096 Apr 24 12:07 .
+   40 -rwxrwxr-x 1 prajas prajas    39120 Apr 24 12:07 flash2
+    4 -rw-rw-r-- 1 prajas prajas     2622 Apr 24 12:11 output.txt

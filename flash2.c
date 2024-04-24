@@ -21,7 +21,9 @@
 #define OUTPUT_REDIRECTION_APPEND ">>"
 #define INPUT_REDIRECTION_APPEND "<<"
 #define ERROR_REDIRECTION_APPEND "2>>"
-
+#define RET_VAL_VAR "?"
+#define ASCII_UPPER_A 65
+#define ASCII_UPPER_Z 90
 
 #define HASH "#"
 #define MAX_SIZE 1024
@@ -45,7 +47,7 @@ int ec = E_OK;
 
 
 struct HashTable {
-    struct Node **HashTable;
+    struct Node *HashTable[15];
     int numberOfElements, capacity;
 };
 
@@ -64,9 +66,9 @@ int CreateEnvironment();
 int ExecuteCommandInBackground(char **arguments, int numberOfCommands);
 int ExecuteCommandInForeground(char **arguments, int *returnValue, int numberOfCommands);
 char **GetEnvPath(char **options);
-int SetEnvironmentVariable(char **);
-int GetEnvironmentVariable(char **);
-char **PreprocessCommandsForPipe(char *command);
+int SetEnvironmentVariable(char *);
+int GetEnvironmentVariable(char *);
+char **PreprocessCommandsForPipe(char *command, int *numberOfCommands);
 char * environment;
 int ProcessMultiplePipes(char **pipes, int numberOfPipes);
 void RemoveEscapeSpace(char *str);
@@ -80,8 +82,10 @@ int hashFunction(struct HashTable* mp, char* key);
 void insert(struct HashTable* mp, char* key, char* value);
 void delete (struct HashTable* mp, char* key);
 char* search(struct HashTable* mp, char* key);
+int CheckKey(char *key);
+struct HashTable *environmentVariables;
 
-int err = E_OK;
+int retVal = E_OK;
 
 int 
 main(int argc, char *argv[])
@@ -116,6 +120,9 @@ main(int argc, char *argv[])
 int CreateEnvironment()
 {
     environment = getenv("PATH");
+    environmentVariables = (struct HashTable *) malloc(sizeof(struct HashTable));
+    environmentVariables -> capacity = 15;
+    environmentVariables -> numberOfElements = 0;
     // hostName = getenv("HOSTNAME");
 }
 
@@ -150,9 +157,11 @@ int
 ProcessMultiplePipes(char **pipes, int numberOfPipes)
 {
     char ***pipeCommands = (char ***) malloc((numberOfPipes + 1) * sizeof(char **));
+    int *numberOfCommands = (int *)malloc(numberOfPipes * sizeof(int));
     for (int i = 0; i < numberOfPipes; i ++)
     {
-        char **commandOptions = PreprocessCommandsForPipe(pipes[i]);
+
+        char **commandOptions = PreprocessCommandsForPipe(pipes[i], numberOfCommands[i]);
         if (commandOptions == NULL)
         {
             free(pipeCommands);
@@ -168,7 +177,7 @@ ProcessMultiplePipes(char **pipes, int numberOfPipes)
     PipedExecution(pipeCommands, numberOfPipes);
 }
 
-int PipedExecution(char ***pipeCommandList, int numberOfPipes)
+int PipedExecution(char ***pipeCommandList, int numberOfPipes, int *numberOfCommands)
 {
     int fd[2];
 	pid_t pid;
@@ -181,17 +190,21 @@ int PipedExecution(char ***pipeCommandList, int numberOfPipes)
             exit(errno);
 		}
 		else if (pid == 0) {
+            int outfd = STDOUT_FILENO;
+            int infd = STDIN_FILENO;
+            int errfd = STDERR_FILENO;
+            char **arguments = RedirectionCheck(*pipeCommandList, &outfd, &infd, &errfd, numberOfCommands);
 			dup2(fdd, 0);
 			if (*(pipeCommandList + 1) != NULL) {
 				dup2(fd[1], 1);
 			}
+            
 			close(fd[0]);
-			execv((*pipeCommandList)[0], *pipeCommandList);
+			execv(arguments[0], arguments);
 			exit(errno);
 		}
 		else 
         {
-            int retVal = 0;
             char buffer[MAX_SIZE];
             int signalCode;
             int wstatusg;
@@ -214,6 +227,7 @@ int PipedExecution(char ***pipeCommandList, int numberOfPipes)
                     }
                     else if (WIFSIGNALED(wstatusg))
                     {
+                        retVal = -6;
                         signalCode = WTERMSIG(wstatusg);
                         snprintf(buffer, MAX_SIZE,  "%s: %d %s - %d\n", "The process with pid", pid, "signalled with signal code", signalCode);
                         write(STDOUT_FILENO, buffer, strlen(buffer));
@@ -221,6 +235,7 @@ int PipedExecution(char ***pipeCommandList, int numberOfPipes)
                     }
                     else if (__WCOREDUMP(wstatusg))
                     {
+                        retVal = -7;
                         snprintf(buffer, MAX_SIZE, "%s: %d %s\n", "The process with pid", pid, "was core dumped");
                         return E_OK;
                     }
@@ -228,6 +243,7 @@ int PipedExecution(char ***pipeCommandList, int numberOfPipes)
                 close(fd[1]);
                 fdd = fd[0];
                 pipeCommandList++;
+                numberOfCommands++;
 		    }
             else
             {
@@ -235,12 +251,13 @@ int PipedExecution(char ***pipeCommandList, int numberOfPipes)
                 close(fd[1]);
                 fdd = fd[0];
                 pipeCommandList++;
+                numberOfCommands++;
             }
 	    }
     }
     return E_OK;
 }
-char **PreprocessCommandsForPipe(char *command)
+char **PreprocessCommandsForPipe(char *command, int *numberOfCommands)
 {
     char **commandOptions;
     char *spaceRegEx = "(([^ ]+([\\] )*)+)|(\"[^\"]*\")";
@@ -276,7 +293,7 @@ int
 ProcessSingleCommand(char *command)
 {
     char **commandOptions;
-    char *spaceRegEx = "(([^ ]+([\\] )*)+)|(\"[^\"]*\")";
+    char *spaceRegEx = "(([^ ]+([\\] )*)+)|(\"[^\"]*\")|([^ ]+=((([^ ]+([\\] )*)+)|(\"[^\"]*\")))";
     int numberOfCommands = TokenizeString(command, &commandOptions, spaceRegEx, TRUE);
     if (numberOfCommands < 0)
         return numberOfCommands;
@@ -287,14 +304,20 @@ ProcessSingleCommand(char *command)
     else if (strcmp(commandOptions[0], SET) == 0)
     {
         if (numberOfCommands == 2)
-            ec = SetEnvironmentVariable(commandOptions + 1);
+        {
+            ec = SetEnvironmentVariable(commandOptions[1]);
+            return ec;
+        }
         else
             return -4;
     }
     else if (strcmp(commandOptions[0], GET) == 0)
     {
         if (numberOfCommands == 2)
-            ec = GetEnvironmentVariable(commandOptions + 1);
+        {
+            ec = GetEnvironmentVariable(commandOptions[1]);
+            return ec;
+        }
         else
             return -4;
     }
@@ -492,16 +515,18 @@ ExecuteCommandInBackground(char **arguments, int numberOfArguments)
 int
 ExecuteCommandInForeground(char **arguments, int *returnValue, int numberOfArguments)
 {
+
     int pid = fork();
     if (pid == -1)
         return errno;
     else if (pid == 0)
     {
+        
         int outfd = STDOUT_FILENO;
         int infd = STDIN_FILENO;
         int errfd = STDERR_FILENO;
+        
         arguments = RedirectionCheck(arguments, &outfd, &infd, &errfd, numberOfArguments);
-
         if (outfd != STDOUT_FILENO)
         {
             if (dup2(outfd, STDOUT_FILENO) == -1)
@@ -511,14 +536,14 @@ ExecuteCommandInForeground(char **arguments, int *returnValue, int numberOfArgum
         }
         if (infd != STDIN_FILENO)
         {
-            if (dup2(outfd, STDIN_FILENO) == -1)
+            if (dup2(infd, STDIN_FILENO) == -1)
             {
                 return errno;
             }
         }
         if (errfd != STDERR_FILENO)
         {
-            if (dup2(outfd, STDERR_FILENO) == -1)
+            if (dup2(errfd, STDERR_FILENO) == -1)
             {
                 return errno;
             }
@@ -533,7 +558,6 @@ ExecuteCommandInForeground(char **arguments, int *returnValue, int numberOfArgum
     }
     else
     {
-        int retVal = 0;
         char buffer[MAX_SIZE];
         int signalCode;
         int wstatusg;
@@ -554,6 +578,7 @@ ExecuteCommandInForeground(char **arguments, int *returnValue, int numberOfArgum
             }
             else if (WIFSIGNALED(wstatusg))
             {
+                retVal = -6;
                 signalCode = WTERMSIG(wstatusg);
                 snprintf(buffer, MAX_SIZE,  "%s: %d %s - %d\n", "The process with pid", pid, "signalled with signal code", signalCode);
                 write(STDOUT_FILENO, buffer, strlen(buffer));
@@ -561,6 +586,7 @@ ExecuteCommandInForeground(char **arguments, int *returnValue, int numberOfArgum
             }
             else if (__WCOREDUMP(wstatusg))
             {
+                retVal = -7;
                 snprintf(buffer, MAX_SIZE, "%s: %d %s\n", "The process with pid", pid, "was core dumped");
                 return E_OK;
             }
@@ -761,17 +787,45 @@ char **RedirectionCheck(char **arguments, int *outfd, int *infd, int *errfd, int
     return finalArguments;
 }
 
-int GetEnvironmentVariable(char **getCommand)
+int GetEnvironmentVariable(char *getCommand)
 {
-    
+    if (strcmp(getCommand, RET_VAL_VAR) == 0)
+        printf("%d\n", retVal);
+    else if (CheckKey(getCommand))
+    {
+        char *value = search(environmentVariables, getCommand);
+        if (value !=NULL)
+        {
+            printf("\n%s\n", value);
+        }
+    }
 }
-int SetEnvironmentVariable(char **setCommand)
+int SetEnvironmentVariable(char *setCommand)
 {
-
+    char *regex = "[^=]+|\"*[^\"]\"* ";
+    char **result;
+    int numberOfTokens = TokenizeString(setCommand, &result, regex, 0);
+    if (numberOfTokens != 2)
+        return -5;
+    else
+    {
+        char *key = result[0];
+        char *value = result[1];
+        if (strlen(value) > 240 || !CheckKey(key))
+            return -5;
+        insert(environmentVariables, key, value);
+        return E_OK;
+    }
 }
-int HashValue(char *key, char *value)
-{   
 
+int CheckKey(char *key)
+{
+    for (int i = 0; i < strlen(key); i++)
+    {
+        if (key[i] < ASCII_UPPER_A || key[i] > ASCII_UPPER_Z)
+            return 0;
+    }
+    return 1;
 }
 
 void setNode(struct Node* node, char* key, char* value)
@@ -782,18 +836,14 @@ void setNode(struct Node* node, char* key, char* value)
     return;
 };
 
-void initializeHashMap(struct HashTable* mp)
-{
+// void initializeHashMap(struct HashTable* mp)
+// {
  
-    // Default capacity in this case
-    mp->capacity = 15;
-    mp->numberOfElements = 0;
- 
-    // array of size = 1
-    mp->HashTable = (struct Node**)malloc(sizeof(struct Node*)
-                                    * mp->capacity);
-    return;
-}
+//     // Default capacity in this case
+//     mp->capacity = 15;
+//     mp->numberOfElements = 0;
+//     return;
+// }
 
  
 int hashFunction(struct HashTable* mp, char* key)
@@ -905,7 +955,7 @@ char* search(struct HashTable* mp, char* key)
     while (bucketHead != NULL) {
  
         // Key is found in the hashMap
-        if (bucketHead->key == key) {
+        if (strcmp(bucketHead->key, key) == 0) {
             return bucketHead->value;
         }
         bucketHead = bucketHead->next;
@@ -914,7 +964,7 @@ char* search(struct HashTable* mp, char* key)
     // If no key found in the hashMap
     // equal to the given key
     char* errorMssg = (char*)malloc(sizeof(char) * 25);
-    errorMssg = "Oops! No data found.\n";
+    errorMssg = "Oops! No data found.";
     return errorMssg;
 }
  
