@@ -73,7 +73,7 @@ char * environment;
 int ProcessMultiplePipes(char **pipes, int numberOfPipes);
 void RemoveEscapeSpace(char *str);
 char *hostName;
-int PipedExecution(char ***pipeCommandList, int numberOfPipes);
+int PipedExecution(char ***pipeCommandList, int numberOfPipes, int *numberOfCommands);
 int PipeExecutables(char ***pipeArray);
 char **RedirectionCheck(char **arguments, int *outfd, int *infd, int *errfd, int numberOfArguments);
 void setNode(struct Node* node, char* key, char* value);
@@ -109,6 +109,7 @@ main(int argc, char *argv[])
         // printf("%s@%s:%s$ ", user, host, workingDirectory);
         printf("\x1b[32m\033[1m%s@%s\x1b[0m:\x1b[34m\033[1m%s\x1b[0m\033[0m$ ", user, hostName, workingDirectory);
         fgets(inputCommand, MAX_SIZE, stdin);
+        printf("twat\n");
         inputCommand[strlen(inputCommand) - 1] = '\0';
         ec = ProcessCommandLine(inputCommand);
         if (ec == E_EXIT)
@@ -158,10 +159,11 @@ ProcessMultiplePipes(char **pipes, int numberOfPipes)
 {
     char ***pipeCommands = (char ***) malloc((numberOfPipes + 1) * sizeof(char **));
     int *numberOfCommands = (int *)malloc(numberOfPipes * sizeof(int));
+    int *commandCountArray = numberOfCommands;
     for (int i = 0; i < numberOfPipes; i ++)
     {
 
-        char **commandOptions = PreprocessCommandsForPipe(pipes[i], numberOfCommands[i]);
+        char **commandOptions = PreprocessCommandsForPipe(pipes[i], commandCountArray);
         if (commandOptions == NULL)
         {
             free(pipeCommands);
@@ -171,10 +173,11 @@ ProcessMultiplePipes(char **pipes, int numberOfPipes)
         {
             pipeCommands[i] = commandOptions;
         }
+        commandCountArray++;
     }
     pipeCommands[numberOfPipes] = NULL;
      
-    PipedExecution(pipeCommands, numberOfPipes);
+    PipedExecution(pipeCommands, numberOfPipes, numberOfCommands);
 }
 
 int PipedExecution(char ***pipeCommandList, int numberOfPipes, int *numberOfCommands)
@@ -184,23 +187,24 @@ int PipedExecution(char ***pipeCommandList, int numberOfPipes, int *numberOfComm
 	int fdd = 0;				/* Backup */
 
 	while (*pipeCommandList != NULL) {
+        // int outfd = STDOUT_FILENO;
+        // int infd = STDIN_FILENO;
+        // int errfd = STDERR_FILENO;
+        // char **arguments = RedirectionCheck(*pipeCommandList, &outfd, &infd, &errfd, *numberOfCommands);
 		pipe(fd);				/* Sharing bidiflow */
 		if ((pid = fork()) == -1) {
 			perror("fork");
             exit(errno);
 		}
 		else if (pid == 0) {
-            int outfd = STDOUT_FILENO;
-            int infd = STDIN_FILENO;
-            int errfd = STDERR_FILENO;
-            char **arguments = RedirectionCheck(*pipeCommandList, &outfd, &infd, &errfd, numberOfCommands);
+
 			dup2(fdd, 0);
 			if (*(pipeCommandList + 1) != NULL) {
 				dup2(fd[1], 1);
 			}
             
 			close(fd[0]);
-			execv(arguments[0], arguments);
+			execv(*pipeCommandList[0], *pipeCommandList);
 			exit(errno);
 		}
 		else 
@@ -261,27 +265,28 @@ char **PreprocessCommandsForPipe(char *command, int *numberOfCommands)
 {
     char **commandOptions;
     char *spaceRegEx = "(([^ ]+([\\] )*)+)|(\"[^\"]*\")";
-    int numberOfCommands = TokenizeString(command, &commandOptions, spaceRegEx, TRUE);
+    int numCommands = TokenizeString(command, &commandOptions, spaceRegEx, TRUE);
+    *numberOfCommands = numCommands;
     if (numberOfCommands < 0)
     {
         return NULL;
     }
-    if(strcmp(commandOptions[0], EXIT) == 0 && numberOfCommands == 1)
+    if(strcmp(commandOptions[0], EXIT) == 0 && *numberOfCommands == 1)
     {
         perror("\nCannot exit while attempting to pipe.\n");
         return NULL;
     }
-    else if (strcmp(commandOptions[0], CD) == 0 && numberOfCommands == 2)
+    else if (strcmp(commandOptions[0], CD) == 0 && *numberOfCommands == 2)
     {
         perror("\nCannot change directory while attempting to pipe.\n");
         return NULL;
     }
     commandOptions = (char **) realloc(commandOptions, (3) * sizeof(char *));
-    commandOptions[numberOfCommands] = NULL;
+    commandOptions[numCommands] = NULL;
     
     commandOptions = GetEnvPath(commandOptions);  
 
-    if (strcmp(commandOptions[numberOfCommands - 1], HASH) == 0) //TODO: Regex instead of comparison
+    if (strcmp(commandOptions[numCommands - 1], HASH) == 0) //TODO: Regex instead of comparison
     {
         perror("\nUnexpected pipe symbol while attempting to run in background\n");
         return NULL;
@@ -360,7 +365,7 @@ ProcessSingleCommand(char *command)
 int
 ProcessPipes(char *command, char ***outputSplit)
 {
-    const char *pipingRegex = "[^|]+ *";
+    const char *pipingRegex = "[^|]+";
     int numberOfPipes = TokenizeString(command, outputSplit, pipingRegex, FALSE);
     if (numberOfPipes < 0)
         return numberOfPipes;
@@ -696,6 +701,12 @@ char **RedirectionCheck(char **arguments, int *outfd, int *infd, int *errfd, int
     char **finalArguments = (char **) malloc (numberOfArguments * sizeof(char *));
     int j = 0;
     //TODO: replace this with a switch case on a hashmap and enum
+    if (numberOfArguments == 1)
+    {
+        finalArguments[0] = arguments[0];
+        finalArguments[1] = NULL;
+        return finalArguments;
+    }
     for (int i = 0; i < numberOfArguments - 1;)
     {
         if (strcmp(arguments[i], OUTPUT_REDIRECTION) == 0)
