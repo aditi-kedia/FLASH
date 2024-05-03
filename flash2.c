@@ -40,6 +40,7 @@
 #define E_GENERAL -1
 #define E_EXIT -2
 #define E_INCORRECT_ARGS -3
+#define MEMORY_ALLOC_FAILURE -4
 #define CD "cd"
 
 int fBackground = DISABLE;
@@ -69,7 +70,7 @@ char **GetEnvPath(char **options);
 int SetEnvironmentVariable(char *);
 int GetEnvironmentVariable(char *);
 char **PreprocessCommandsForPipe(char *command, int *numberOfCommands);
-char * environment;
+char *environment;
 int ProcessMultiplePipes(char **pipes, int numberOfPipes);
 void RemoveEscapeSpace(char *str);
 char *hostName;
@@ -77,12 +78,12 @@ int PipedExecution(char ***pipeCommandList, int numberOfPipes, int *numberOfComm
 int PipeExecutables(char ***pipeArray);
 char **RedirectionCheck(char **arguments, int *outfd, int *infd, int *errfd, int numberOfArguments);
 void setNode(struct Node* node, char* key, char* value);
-void initializeHashMap(struct HashTable* mp);
 int hashFunction(struct HashTable* mp, char* key);
 void insert(struct HashTable* mp, char* key, char* value);
 void delete (struct HashTable* mp, char* key);
 char* search(struct HashTable* mp, char* key);
 int CheckKey(char *key);
+int CleanEnvironment();
 struct HashTable *environmentVariables;
 
 int retVal = E_OK;
@@ -92,7 +93,10 @@ main(int argc, char *argv[])
 {
     char *workingDirectory;
     char *user;
-    CreateEnvironment();
+    if(CreateEnvironment())
+    {
+        goto CLEANUP;
+    }
     char inputCommand[MAX_SIZE];
     struct utsname info;
 
@@ -109,22 +113,31 @@ main(int argc, char *argv[])
         // printf("%s@%s:%s$ ", user, host, workingDirectory);
         printf("\x1b[32m\033[1m%s@%s\x1b[0m:\x1b[34m\033[1m%s\x1b[0m\033[0m$ ", user, hostName, workingDirectory);
         fgets(inputCommand, MAX_SIZE, stdin);
-        printf("twat\n");
         inputCommand[strlen(inputCommand) - 1] = '\0';
         ec = ProcessCommandLine(inputCommand);
         if (ec == E_EXIT)
             break;
-
     }
+    CLEANUP:
+    CleanEnvironment();
+}
+
+int CleanEnvironment()
+{
+    free(environmentVariables);
 }
 
 int CreateEnvironment()
 {
     environment = getenv("PATH");
+    if (environment == NULL)
+        return 1;
     environmentVariables = (struct HashTable *) malloc(sizeof(struct HashTable));
+    if (environmentVariables == NULL)
+        return 1;
     environmentVariables -> capacity = 15;
     environmentVariables -> numberOfElements = 0;
-    // hostName = getenv("HOSTNAME");
+    return 0;
 }
 
 int 
@@ -145,13 +158,19 @@ ProcessCommandLine(char *commandLine)
         {
             ec = ProcessSingleCommand(pipes[0]);
             if (ec == E_EXIT)
+            {
+                free(pipes);
+                free(commandArray);
                 return E_EXIT;
+            }
         }
         else 
         {
             ec = ProcessMultiplePipes(pipes, numberOfPipes);
+            free(pipes);
         }
     }
+    free(commandArray);
 }
 
 int
@@ -167,6 +186,7 @@ ProcessMultiplePipes(char **pipes, int numberOfPipes)
         if (commandOptions == NULL)
         {
             free(pipeCommands);
+            free(numberOfCommands);
             return -1;
         }
         else
@@ -177,7 +197,10 @@ ProcessMultiplePipes(char **pipes, int numberOfPipes)
     }
     pipeCommands[numberOfPipes] = NULL;
      
-    PipedExecution(pipeCommands, numberOfPipes, numberOfCommands);
+    int err = PipedExecution(pipeCommands, numberOfPipes, numberOfCommands);
+    free(pipeCommands);
+    free(numberOfCommands);
+    return err;
 }
 
 int PipedExecution(char ***pipeCommandList, int numberOfPipes, int *numberOfCommands)
@@ -261,6 +284,7 @@ int PipedExecution(char ***pipeCommandList, int numberOfPipes, int *numberOfComm
     }
     return E_OK;
 }
+
 char **PreprocessCommandsForPipe(char *command, int *numberOfCommands)
 {
     char **commandOptions;
@@ -339,6 +363,8 @@ ProcessSingleCommand(char *command)
         return E_OK;
     }
     commandOptions = (char **) realloc(commandOptions, (3) * sizeof(char *));
+    if (commandOptions == NULL)
+        return MEMORY_ALLOC_FAILURE;
     commandOptions[numberOfCommands] = NULL;
     
     commandOptions = GetEnvPath(commandOptions);  
@@ -450,6 +476,10 @@ char ** GetEnvPath(char **options)
                 found = 1;
                 options[0] = fullCommmand;
                 return options;
+            }
+            else
+            {
+                free(fullCommmand);
             }
             token = strtok(NULL, ":");
         }
@@ -578,7 +608,7 @@ ExecuteCommandInForeground(char **arguments, int *returnValue, int numberOfArgum
                 if (retVal == E_OK)
                     return E_OK;
                 snprintf(buffer, MAX_SIZE, "%s: %d %s - %d\n", "The process with pid", pid, "exited with error code", retVal);
-                write(STDOUT_FILENO, buffer, strlen(buffer));
+                printf("%s", buffer);
                 return E_OK; //Design choice to print child exit status and return parent exit code
             }
             else if (WIFSIGNALED(wstatusg))
@@ -586,13 +616,14 @@ ExecuteCommandInForeground(char **arguments, int *returnValue, int numberOfArgum
                 retVal = -6;
                 signalCode = WTERMSIG(wstatusg);
                 snprintf(buffer, MAX_SIZE,  "%s: %d %s - %d\n", "The process with pid", pid, "signalled with signal code", signalCode);
-                write(STDOUT_FILENO, buffer, strlen(buffer));
+                printf("%s", buffer);
                 return E_OK;
             }
             else if (__WCOREDUMP(wstatusg))
             {
                 retVal = -7;
                 snprintf(buffer, MAX_SIZE, "%s: %d %s\n", "The process with pid", pid, "was core dumped");
+                printf("%s", buffer);
                 return E_OK;
             }
         }
@@ -600,13 +631,12 @@ ExecuteCommandInForeground(char **arguments, int *returnValue, int numberOfArgum
     }
 }
 
-//  function: PipeExecutables
-//      This function executes a given generator binary specified by a generator path and pipes
-//      its standard output to the standard input of consumer binary specified by consumer path
-//
-//  @param: pointer to a character array containing options string for consumer executable
-//  @param: pointer to a character array containing options string for generator executable
-//  @return: integer error code
+
+// TODO:Remove this function before submission
+/// @brief:This function executes a given generator binary specified by a generator path and pipes
+///        its standard output to the standard input of consumer binary specified by consumer path
+/// @param pipeCommands pointer to array of strings representing commands
+/// @return 0 if successful or errno value
 int
 PipeExecutables(char ***pipeCommands)
 {
@@ -696,9 +726,21 @@ PipeExecutables(char ***pipeCommands)
     }
 }
 
-char **RedirectionCheck(char **arguments, int *outfd, int *infd, int *errfd, int numberOfArguments)
+/// @brief This function checks if there user wants to redirect standard I/O, opens appropriate file and sets 
+/// file numbers appropriately
+/// @param arguments input arguments
+/// @param outfd redirected output file descriptor
+/// @param infd redirected input file descriptor
+/// @param errfd redirected error file descriptor
+/// @param numberOfArguments number of input arguments
+/// @return character final command array with redirection symbols and paths removed
+
+char **
+RedirectionCheck(char **arguments, int *outfd, int *infd, int *errfd, int numberOfArguments)
 {
     char **finalArguments = (char **) malloc (numberOfArguments * sizeof(char *));
+    if (finalArguments == NULL)
+        return NULL;
     int j = 0;
     //TODO: replace this with a switch case on a hashmap and enum
     if (numberOfArguments == 1)
@@ -798,6 +840,7 @@ char **RedirectionCheck(char **arguments, int *outfd, int *infd, int *errfd, int
     return finalArguments;
 }
 
+
 int GetEnvironmentVariable(char *getCommand)
 {
     if (strcmp(getCommand, RET_VAL_VAR) == 0)
@@ -888,10 +931,9 @@ void insert(struct HashTable* mp, char* key, char* value)
     // Getting bucket index for the given
     // key - value pair
     int bucketIndex = hashFunction(mp, key);
-    struct Node* newNode = (struct Node*)malloc(
- 
-        // Creating a new node
-        sizeof(struct Node));
+    struct Node* newNode = (struct Node*)malloc(sizeof(struct Node));
+    if (newNode = NULL)
+        return;
  
     // Setting value of node
     setNode(newNode, key, value);
@@ -974,8 +1016,7 @@ char* search(struct HashTable* mp, char* key)
  
     // If no key found in the hashMap
     // equal to the given key
-    char* errorMssg = (char*)malloc(sizeof(char) * 25);
-    errorMssg = "Oops! No data found.";
+    char* errorMssg = "Oops! No data found.";
     return errorMssg;
 }
  
