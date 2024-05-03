@@ -143,7 +143,14 @@ RedirectionCheck(char **arguments, int *outfd, int *infd, int *errfd, int number
     return finalArguments;
 }
 
-char *EnvironmentVariableRedirection(char **arguments, int *outfd, int numberOfArguments)
+/// @brief Takes a get command line and obtains the variable name. Also redirects the output to specified file
+/// @param arguments array of arguments in the get command line
+/// @param outfd pointer to the output file descriptor
+/// @param numberOfArguments The number of arguments present in the command line
+/// @return String name of the environment variable requested by the user
+
+char *
+EnvironmentVariableRedirection(char **arguments, int *outfd, int numberOfArguments)
 {
     int j = 0;
     char *finalArguments = (char *) malloc (numberOfArguments * 16);
@@ -156,6 +163,24 @@ char *EnvironmentVariableRedirection(char **arguments, int *outfd, int numberOfA
             if (i + 1 < numberOfArguments)
             {
                 *outfd = open(arguments[i + 1], O_WRONLY | O_CREAT);
+                if (*outfd == E_GENERAL)
+                {
+                    perror("Could not open the redirection file");
+                    return NULL;
+                }
+                i += 2;
+            }
+            else
+            {
+                perror("Syntax error - please mention path to redirect to");
+                return NULL;
+            }
+        }
+        else if (strcmp(arguments[i], OUTPUT_REDIRECTION_APPEND) == 0)
+        {
+            if (i + 1 < numberOfArguments)
+            {
+                *outfd = open(arguments[i + 1], O_WRONLY | O_CREAT | O_APPEND);
                 if (*outfd == E_GENERAL)
                 {
                     perror("Could not open the redirection file");
