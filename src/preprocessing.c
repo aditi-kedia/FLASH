@@ -1,12 +1,23 @@
 #include "preprocessing.h"
 
-int CleanEnvironment(struct HashTable **environmentVariables, char **environment)
+/// @brief Frees the environment variables
+/// @param environmentVariables Hashtable of environment variables
+/// @param environment String containing the value of the PATH environment variable
+/// @return 0 if successful
+int 
+CleanEnvironment(struct HashTable **environmentVariables, char **environment)
 {
     free(*environmentVariables);
     free(*environment);
+    return E_OK;
 }
 
-int CreateEnvironment(char **environment, struct HashTable **environmentVariables)
+/// @brief Creates the environment for the program by allocating memory to environment and environment hash table
+/// @param environment Pointer to the string where the value of PATH environment variable will be stored.
+/// @param environmentVariables Pointer to the hashtable that will be created
+/// @return 0 if the allocations are successful else 1
+int 
+CreateEnvironment(char **environment, struct HashTable **environmentVariables)
 {
     char *env = getenv("PATH");
      if (env == NULL)
@@ -23,12 +34,18 @@ int CreateEnvironment(char **environment, struct HashTable **environmentVariable
     return 0;
 }
 
+/// @brief Processes the input command line, parsing it according to the design decisions and executing the commands as required.
+/// @param commandLine The command line received from the user
+/// @param environment String containing the value of the PATH environment variable
+/// @param retVal Pointer to the return value of the previously executed program
+/// @param environmentVariables Hashtable containing the environment variables
+/// @return 0 if successful, errno in case of errors and -2 in case of exit request by the user
 int 
 ProcessCommandLine(char *commandLine, const char *environment, int *retVal, struct HashTable **environmentVariables)
 {
     char **commandArray;
     int ec = E_OK;
-    const char *commaRegEx = "[^,]+ *|(\"[^\"]*\")";
+    const char *commaRegEx = "[^,]+ *|(\"[^\"]*\")"; //regex to split a string on comma while ignoring double inverted commas
     int numberOfCommands = TokenizeString(commandLine, &commandArray, commaRegEx, FALSE);
     if (numberOfCommands < 0)
         return numberOfCommands;
@@ -58,13 +75,19 @@ ProcessCommandLine(char *commandLine, const char *environment, int *retVal, stru
     return ec;
 }
 
-
+/// @brief Processes a single command, splitting it on spaces and ignoring inverted commas and escape characters. Also accounts for setting variables
+///        by parsing the form a="" or a=b\ . Executes this command or sets/gets the environment variable.
+/// @param command The command string to be parsed and executed
+/// @param environment String containing the value of the PATH environment variable
+/// @param retVal Pointer to the return value of the previously executed program
+/// @param environmentVariables Hashtable containing the environment variables
+/// @return 0 in case of successful execution, errno in case of failures and pre-defined error codes
 int
 ProcessSingleCommand(char *command, const char *environment, int *retVal, struct HashTable **environmentVariables)
 {
     int ec = E_OK;
     char **commandOptions;
-    char *spaceRegEx = "(([^ ]+([\\] )*)+)|(\"[^\"]*\")|([^ ]+=((([^ ]+([\\] )*)+)|(\"[^\"]*\")))";
+    char *spaceRegEx = "(([^ ]+([\\] )*)+)|(\"[^\"]*\")|([^ ]+=((([^ ]+([\\] )*)+)|(\"[^\"]*\")))"; //regex to parse on space and ignoring escape characters and inverted commas
     int numberOfCommands = TokenizeString(command, &commandOptions, spaceRegEx, TRUE);
     if (numberOfCommands < 0)
         return numberOfCommands;
@@ -115,6 +138,7 @@ ProcessSingleCommand(char *command, const char *environment, int *retVal, struct
     commandOptions = (char **) realloc(commandOptions, (numberOfCommands + 1) * sizeof(char *));
     if (commandOptions == NULL)
         return MEMORY_ALLOC_FAILURE;
+
     commandOptions[numberOfCommands] = NULL;
     
     commandOptions = GetEnvPath(commandOptions, environment);  
@@ -131,14 +155,20 @@ ProcessSingleCommand(char *command, const char *environment, int *retVal, struct
         int returnValue = ExecuteCommandInForeground(commandOptions, &processReturnValue, numberOfCommands, retVal, environment);
         if (returnValue != 0)
         {
+            free(commandOptions);
             return returnValue;
         }
     }
-   
+    free(commandOptions);
     return E_OK;
 }
 
 
+/// @brief Takes an array of arguments for a command line and checks whether the command requested is present in the PATH environment paths. 
+///        If yes then this path is apended to the command
+/// @param options The array of commands
+/// @param environment String contianing the value of the PATH environment variable
+/// @return Pointet to the array of arguments with the PATH environment path attached if present
 char ** 
 GetEnvPath(char **options, const char *environment)
 {

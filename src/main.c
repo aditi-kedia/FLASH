@@ -26,16 +26,16 @@ main(int argc, char *argv[])
     struct utsname info;
 
     if (uname(&info) == 0) {
-        hostName = info.nodename;
+        hostName = info.nodename; //gets the host name of the PC
     }
     while(1)
     {
         RESTART:
-        workingDirectory = getcwd(workingDirectory, MAX_SIZE);
+        workingDirectory = getcwd(workingDirectory, MAX_SIZE); //gets current working directory
         if (workingDirectory == NULL)
             goto RESTART;
         
-        user = getlogin();
+        user = getlogin(); // gets the user name
 
         if (user == NULL)
             return errno;

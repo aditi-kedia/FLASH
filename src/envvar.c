@@ -4,7 +4,6 @@
 /// @param mp Pointer to hashmap to be used
 /// @param key Key to be hashed
 /// @return index for the new node
-
 int 
 HashFunction(struct HashTable* mp, char* key)
 {
@@ -36,7 +35,6 @@ HashFunction(struct HashTable* mp, char* key)
 /// @param key Key to be hashed
 /// @param value Value to be stored
 /// @return void
-
 void 
 Insert(struct HashTable* mp, char* key, char* value)
 {
@@ -73,7 +71,6 @@ Insert(struct HashTable* mp, char* key, char* value)
 /// @param mp Pointer to hashmap to be used
 /// @param key Key to be hashed
 /// @return void
-
 void 
 DeleteNode (struct HashTable* mp, char* key)
 {
@@ -118,7 +115,6 @@ DeleteNode (struct HashTable* mp, char* key)
 /// @param mp Pointer to hashmap to be used
 /// @param key Key to be hashed
 /// @return the value associated with the key or an error message
-
 char* 
 Search(struct HashTable* mp, char* key)
 {
@@ -151,7 +147,6 @@ Search(struct HashTable* mp, char* key)
 /// @param environmentVariables Hashmap of environment variables
 /// @param outFd file descriptor dor final output
 /// @return 0 if successful else returns value of errno
-
 int
 GetEnvironmentVariable(char *getCommand, int *retVal, struct HashTable **environmentVariables, int outFd)
 {
@@ -176,7 +171,6 @@ GetEnvironmentVariable(char *getCommand, int *retVal, struct HashTable **environ
 /// @param setCommand The command given to set the variable
 /// @param environmentVariables Hashmap of enviroment variables
 /// @return -5 in case of incorrect number / format of tokens else 0
-
 int 
 SetEnvironmentVariable(char *setCommand, struct HashTable **environmentVariables)
 {
@@ -199,7 +193,6 @@ SetEnvironmentVariable(char *setCommand, struct HashTable **environmentVariables
 /// @brief Helper function to check if all the letters are uppercase
 /// @param key The key to be checked
 /// @return 1 if the key has all upercase letters else 0
-
 int
 CheckKey(char *key)
 {
@@ -216,7 +209,6 @@ CheckKey(char *key)
 /// @param key The key you want to set
 /// @param value The value you want to set
 /// @return void
-
 void 
 SetNode(struct Node* node, char* key, char* value)
 {

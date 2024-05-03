@@ -8,7 +8,6 @@
 /// @param errfd redirected error file descriptor
 /// @param numberOfArguments number of input arguments
 /// @return character final command array with redirection symbols and paths removed
-
 char **
 RedirectionCheck(char **arguments, int *outfd, int *infd, int *errfd, int numberOfArguments)
 {
@@ -148,7 +147,6 @@ RedirectionCheck(char **arguments, int *outfd, int *infd, int *errfd, int number
 /// @param outfd pointer to the output file descriptor
 /// @param numberOfArguments The number of arguments present in the command line
 /// @return String name of the environment variable requested by the user
-
 char *
 EnvironmentVariableRedirection(char **arguments, int *outfd, int numberOfArguments)
 {

@@ -99,7 +99,6 @@ ExecuteCommandInForeground(char **arguments, int *returnValue, int numberOfArgum
 /// @param retVal The pointer to an integer variable to store the return value of the program
 /// @param environment A string containing the value of the PATH environment variable
 /// @return 0 in case of success or errno or defined error code
-
 int 
 PipedExecution(char ***pipeCommandList, int numberOfPipes, int *numberOfCommands, int *retVal, const char *environment)
 {
@@ -263,11 +262,10 @@ PipedExecution(char ***pipeCommandList, int numberOfPipes, int *numberOfCommands
 }
 
 /// @brief Executes a simple command line in the background
-/// @param arguments array of arguments for the command line
+/// @param arguments Array of arguments for the command line
 /// @param numberOfArguments number of arguments in the command line
 /// @param environment A string containing the value of the PATH environment variable
 /// @return 0 if successful else value of errno or defined error codes
-
 int
 ExecuteCommandInBackground(char **arguments, int numberOfArguments, const char *environment)
 {

@@ -6,12 +6,9 @@
 /// @param re regular expression to use for parsing
 /// @param removeSpace 
 /// @return int length of array. If any error is encountered, the error value is returned
-
 int 
 TokenizeString(const char *const str, char ***arr, const char *re, int removeSpace)
 {
-    //static const char *const re = "(([^ ,]+([\\] )*)+)|(\"[^\"]*\")";
-    //static const char *const re = "([^,]+([,] )*)+";
     const char *s = str;
     regex_t     regex;
     regmatch_t  pmatch[1];
@@ -67,7 +64,6 @@ TokenizeString(const char *const str, char ***arr, const char *re, int removeSpa
 /// @brief Removes escape characters from a given string
 /// @param str The input string
 /// @return void
-
 void 
 RemoveEscapeSpace(char *str) 
 {
