@@ -1,11 +1,16 @@
 #include "piping.h"
 
+/// @brief 
+/// @param command The string to be parsed
+/// @param numberOfCommands pointer to variable where number of commands will be saved
+/// @param environment string containing the value of PATH environment variable
+/// @return pointer to array of parsed commands
 
 char **
 PreprocessCommandsForPipe(char *command, int *numberOfCommands, const char *environment)
 {
     char **commandOptions;
-    char *spaceRegEx = "(([^ ]+([\\] )*)+)|(\"[^\"]*\")";
+    char *spaceRegEx = "(([^ ]+([\\] )*)+)|(\"[^\"]*\")"; //regex to spilt on space and to ignore escape character spaces and double inverted commas
     int numCommands = TokenizeString(command, &commandOptions, spaceRegEx, TRUE);
     *numberOfCommands = numCommands;
 
@@ -35,10 +40,11 @@ PreprocessCommandsForPipe(char *command, int *numberOfCommands, const char *envi
     }
 
     commandOptions = (char **) realloc(commandOptions, (3) * sizeof(char *));
+    if (commandOptions == NULL)
+        return NULL;
+
     commandOptions[numCommands] = NULL;
     
-    commandOptions = GetEnvPath(commandOptions, environment);  
-
     if (strcmp(commandOptions[numCommands - 1], HASH) == 0) //TODO: Regex instead of comparison
     {
         perror("\nUnexpected pipe symbol while attempting to run in background\n");
@@ -48,22 +54,46 @@ PreprocessCommandsForPipe(char *command, int *numberOfCommands, const char *envi
 }
 
 
+/// @brief Splits a string to be piped into separate command lines and processes it for execution
+/// @param command The command line to be split
+/// @param outputSplit The pointer to the array of pipe command lines
+/// @return number of pipes found
+
 int
 ProcessPipes(char *command, char ***outputSplit)
 {
-    const char *pipingRegex = "[^|]+";
+    const char *pipingRegex = "[^|]+"; //regex to split on pipe
     int numberOfPipes = TokenizeString(command, outputSplit, pipingRegex, FALSE);
     if (numberOfPipes < 0)
         return numberOfPipes;
 }
 
 
+/// @brief Processes an array of command lines to be piped and then executes the string
+/// @param pipes the array of command lines
+/// @param numberOfPipes the number of pipes found
+/// @param environment string containing the value of PATH environment variable
+/// @param retVal The pointer to the return value after execution
+/// @return 0 in case of successful execution, errno value or specifed error value.
+
 int
 ProcessMultiplePipes(char **pipes, int numberOfPipes, const char *environment, int *retVal)
 {
     char ***pipeCommands = (char ***) malloc((numberOfPipes + 1) * sizeof(char **));
+
+    if (pipeCommands == NULL)
+        return E_GENERAL; 
+
     int *numberOfCommands = (int *)malloc(numberOfPipes * sizeof(int));
+
+    if (numberOfCommands == NULL)
+    {
+        free(pipeCommands);
+        return E_GENERAL;
+    }
+
     int *commandCountArray = numberOfCommands;
+
     for (int i = 0; i < numberOfPipes; i ++)
     {
 
@@ -72,7 +102,7 @@ ProcessMultiplePipes(char **pipes, int numberOfPipes, const char *environment, i
         {
             free(pipeCommands);
             free(numberOfCommands);
-            return -1;
+            return E_GENERAL;
         }
         else
         {
@@ -82,7 +112,7 @@ ProcessMultiplePipes(char **pipes, int numberOfPipes, const char *environment, i
     }
     pipeCommands[numberOfPipes] = NULL;
      
-    int err = PipedExecution(pipeCommands, numberOfPipes, numberOfCommands, retVal);
+    int err = PipedExecution(pipeCommands, numberOfPipes, numberOfCommands, retVal, environment);
     free(pipeCommands);
     free(numberOfCommands);
     return err;
