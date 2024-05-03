@@ -122,20 +122,25 @@ char* Search(struct HashTable* mp, char* key)
 }
  
 
-int GetEnvironmentVariable(char *getCommand, int *retVal, struct HashTable **environmentVariables)
+int GetEnvironmentVariable(char *getCommand, int *retVal, struct HashTable **environmentVariables, int outFd)
 {
+    char buffer[242];
+
     if (strcmp(getCommand, RET_VAL_VAR) == 0)
-        printf("%d\n", *retVal);
+        snprintf(buffer, 241, "%d\n", *retVal);
     else if (CheckKey(getCommand))
     {
         char *value = Search(*environmentVariables, getCommand);
         if (value !=NULL)
         {
-            printf("\n%s\n", value);
+            snprintf(buffer, 241, "%s\n", value);
         }
     }
+    if(write(outFd, buffer, strlen(buffer)) == E_GENERAL)
+        return errno;
     return E_OK;
 }
+
 int SetEnvironmentVariable(char *setCommand, struct HashTable **environmentVariables)
 {
     char *regex = "[^=]+|\"*[^\"]\"* ";
@@ -156,7 +161,7 @@ int SetEnvironmentVariable(char *setCommand, struct HashTable **environmentVaria
 
 int CheckKey(char *key)
 {
-    for (int i = 0; i < (int)strlen(key); i++)
+    for (int i = 0; i < strlen(key); i++)
     {
         if (key[i] < ASCII_UPPER_A || key[i] > ASCII_UPPER_Z)
             return 0;

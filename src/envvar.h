@@ -29,7 +29,7 @@
     extern void Insert(struct HashTable* mp, char* key, char* value);
     extern void DeleteNode(struct HashTable* mp, char* key);
     extern char* Search(struct HashTable* mp, char* key);
-    extern int GetEnvironmentVariable(char *getCommand, int *, struct HashTable **environmentVariables);
+    extern int GetEnvironmentVariable(char *getCommand, int *, struct HashTable **environmentVariables, int outFd);
     extern int SetEnvironmentVariable(char *setCommand, struct HashTable **environmentVariables);
     extern int CheckKey(char *key);
 #endif

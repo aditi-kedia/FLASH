@@ -86,7 +86,15 @@ ProcessSingleCommand(char *command, const char *environment, int *retVal, struct
     {
         if (numberOfCommands == 2)
         {
-            ec = GetEnvironmentVariable(commandOptions[1], retVal, environmentVariables);
+            ec = GetEnvironmentVariable(commandOptions[1], retVal, environmentVariables, STDOUT_FILENO);
+            return ec;
+        }
+        else if (numberOfCommands > 2)
+        {
+            int outFd = STDOUT_FILENO;
+            char *name = EnvironmentVariableRedirection(commandOptions, &outFd, numberOfCommands);
+
+            ec = GetEnvironmentVariable(name, retVal, environmentVariables, outFd);
             return ec;
         }
         else
@@ -104,7 +112,7 @@ ProcessSingleCommand(char *command, const char *environment, int *retVal, struct
         }
         return E_OK;
     }
-    commandOptions = (char **) realloc(commandOptions, (3) * sizeof(char *));
+    commandOptions = (char **) realloc(commandOptions, (numberOfCommands + 1) * sizeof(char *));
     if (commandOptions == NULL)
         return MEMORY_ALLOC_FAILURE;
     commandOptions[numberOfCommands] = NULL;
@@ -114,13 +122,13 @@ ProcessSingleCommand(char *command, const char *environment, int *retVal, struct
     if (strcmp(commandOptions[numberOfCommands - 1], HASH) == 0)
     {
         commandOptions[numberOfCommands - 1] = NULL;
-        ExecuteCommandInBackground(commandOptions, numberOfCommands);
+        ExecuteCommandInBackground(commandOptions, numberOfCommands, environment);
     }
     else
     {
         int processReturnValue;
  
-        int returnValue = ExecuteCommandInForeground(commandOptions, &processReturnValue, numberOfCommands + 1, retVal);
+        int returnValue = ExecuteCommandInForeground(commandOptions, &processReturnValue, numberOfCommands, retVal, environment);
         if (returnValue != 0)
         {
             return returnValue;
