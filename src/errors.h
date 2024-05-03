@@ -8,5 +8,7 @@
     #define E_EXIT -2
     #define E_INCORRECT_ARGS -3
     #define MEMORY_ALLOC_FAILURE -4
+    #define SIGNALED -6
+    #define CORE_DUMPED -7
 
 #endif

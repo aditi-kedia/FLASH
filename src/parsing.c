@@ -6,6 +6,7 @@
 /// @param re regular expression to use for parsing
 /// @param removeSpace 
 /// @return int length of array. If any error is encountered, the error value is returned
+
 int 
 TokenizeString(const char *const str, char ***arr, const char *re, int removeSpace)
 {
@@ -21,17 +22,25 @@ TokenizeString(const char *const str, char ***arr, const char *re, int removeSpa
         return -1;
 
     char **array = (char **) malloc(sizeof(char *));
+    if (array == NULL)
+        return MEMORY_ALLOC_FAILURE;
+
     for (int i = 0; ; i++) {
         if (regexec(&regex, s, ARRAY_SIZE(pmatch), pmatch, 0))
             break;
         arraySize++;
         array = (char **) realloc(array, arraySize * sizeof(char *));
-        
+        if (array == NULL)
+            return MEMORY_ALLOC_FAILURE;
+
         off = pmatch[0].rm_so + (s - str);
         len = pmatch[0].rm_eo - pmatch[0].rm_so;
         int start = pmatch[0].rm_so + 1;
 
         char *buf = (char *) malloc(len);
+        if (buf == NULL)
+            return MEMORY_ALLOC_FAILURE;
+
         snprintf(buf, 1024, "%.*s", len, s + pmatch[0].rm_so);
         if (buf[0] == '"')
         {
@@ -55,8 +64,12 @@ TokenizeString(const char *const str, char ***arr, const char *re, int removeSpa
     return arraySize;
 }
 
+/// @brief Removes escape characters from a given string
+/// @param str The input string
+/// @return void
 
-void RemoveEscapeSpace(char *str) 
+void 
+RemoveEscapeSpace(char *str) 
 {
     int i, j;
     for (i = 0, j = 0; str[i] != '\0'; i++, j++) {

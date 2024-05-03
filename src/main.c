@@ -34,9 +34,14 @@ main(int argc, char *argv[])
         workingDirectory = getcwd(workingDirectory, MAX_SIZE);
         if (workingDirectory == NULL)
             goto RESTART;
+        
         user = getlogin();
-        // printf("%s@%s:%s$ ", user, host, workingDirectory);
+
+        if (user == NULL)
+            return errno;
+        
         printf("\x1b[32m\033[1m%s@%s\x1b[0m:\x1b[34m\033[1m%s\x1b[0m\033[0m$ ", user, hostName, workingDirectory);
+        
         fgets(inputCommand, MAX_SIZE, stdin);
         inputCommand[strlen(inputCommand) - 1] = '\0';
         ec = ProcessCommandLine(inputCommand, environment, &retVal, &environmentVariables);
@@ -44,5 +49,7 @@ main(int argc, char *argv[])
             break;
     }
     CLEANUP:
-    CleanEnvironment(&environmentVariables, &environment);
+    if(CleanEnvironment(&environmentVariables, &environment))
+        return errno;
+    return E_OK;
 }
