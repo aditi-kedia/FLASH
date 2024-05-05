@@ -112,7 +112,6 @@ PipedExecution(char ***pipeCommandList, int numberOfPipes, int *numberOfCommands
         return MEMORY_ALLOC_FAILURE;
 
 	while (*pipeCommandList != NULL) {
-
 		pipe(fd);	
 		if ((pid = fork()) == E_GENERAL) 
         {

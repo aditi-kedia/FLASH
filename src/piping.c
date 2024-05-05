@@ -38,7 +38,7 @@ PreprocessCommandsForPipe(char *command, int *numberOfCommands, const char *envi
         return NULL;
     }
 
-    commandOptions = (char **) realloc(commandOptions, (3) * sizeof(char *));
+    commandOptions = (char **) realloc(commandOptions, (*numberOfCommands + 1) * sizeof(char *));
     if (commandOptions == NULL)
         return NULL;
 
@@ -60,7 +60,7 @@ PreprocessCommandsForPipe(char *command, int *numberOfCommands, const char *envi
 int
 ProcessPipes(char *command, char ***outputSplit)
 {
-    const char *pipingRegex = "[^|]+"; //regex to split on pipe
+    const char *pipingRegex = "[^—]+"; //regex to split on pipe
     int numberOfPipes = TokenizeString(command, outputSplit, pipingRegex, FALSE);
     if (numberOfPipes < 0)
         return numberOfPipes;

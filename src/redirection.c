@@ -11,7 +11,7 @@
 char **
 RedirectionCheck(char **arguments, int *outfd, int *infd, int *errfd, int numberOfArguments)
 {
-    char **finalArguments = (char **) malloc (numberOfArguments * sizeof(char *));
+    char **finalArguments = (char **) malloc ((numberOfArguments + 1) * sizeof(char *));
     if (finalArguments == NULL)
         return NULL;
     int j = 0;
@@ -27,7 +27,7 @@ RedirectionCheck(char **arguments, int *outfd, int *infd, int *errfd, int number
         {
             if (i + 1 < numberOfArguments)
             {
-                *outfd = open(arguments[i + 1], O_WRONLY | O_CREAT );
+                *outfd = open(arguments[i + 1], O_WRONLY);
                 if (*outfd == E_GENERAL)
                 {
                     perror("Could not open the redirection file");
@@ -45,7 +45,7 @@ RedirectionCheck(char **arguments, int *outfd, int *infd, int *errfd, int number
         {
             if (i + 1 < numberOfArguments)
             {
-                *outfd = open(arguments[i + 1], O_WRONLY | O_APPEND | O_CREAT);
+                *outfd = open(arguments[i + 1], O_WRONLY | O_APPEND);
                 if (*outfd == E_GENERAL)
                 {
                     perror("Could not open the redirection file");
@@ -63,7 +63,7 @@ RedirectionCheck(char **arguments, int *outfd, int *infd, int *errfd, int number
         {
             if (i + 1 < numberOfArguments)
             {
-                *infd = open(arguments[i + 1], O_RDONLY | O_CREAT);
+                *infd = open(arguments[i + 1], O_RDONLY);
                 if (*infd == E_GENERAL)
                 {
                     perror("Could not open the redirection file");
@@ -81,7 +81,7 @@ RedirectionCheck(char **arguments, int *outfd, int *infd, int *errfd, int number
         {
             if (i + 1 < numberOfArguments)
             {
-                *infd = open(arguments[i + 1], O_RDONLY | O_APPEND | O_CREAT);
+                *infd = open(arguments[i + 1], O_RDONLY | O_APPEND);
                 if (*infd == E_GENERAL)
                 {
                     perror("Could not open the redirection file");
@@ -99,7 +99,7 @@ RedirectionCheck(char **arguments, int *outfd, int *infd, int *errfd, int number
         {
             if (i + 1 < numberOfArguments)
             {
-                *errfd = open(arguments[i + 1], O_WRONLY | O_CREAT);
+                *errfd = open(arguments[i + 1], O_WRONLY);
                 if (*errfd == E_GENERAL)
                 {
                     perror("Could not open the redirection file");
@@ -117,7 +117,7 @@ RedirectionCheck(char **arguments, int *outfd, int *infd, int *errfd, int number
         {
             if (i + 1 < numberOfArguments)
             {
-                *errfd = open(arguments[i + 1], O_WRONLY | O_APPEND | O_CREAT);
+                *errfd = open(arguments[i + 1], O_WRONLY | O_APPEND);
                 if (*errfd == E_GENERAL)
                 {
                     perror("Could not open the redirection file");
