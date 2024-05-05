@@ -7,7 +7,6 @@
 ```
 
 ## Description
-Team Members: - Prajas Naik, Piya Shah, Paarth Gala
 
 FLASH is a simple shell that supports basic redirection, piping, and simple command esecution. It also has support for storing environment variables and getting the value of the stored variables.
 
