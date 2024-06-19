@@ -14,8 +14,8 @@ As a design choice, I chose to use regular expressions to parse the given input 
 
 This also allowed us to parse for and pipe multiple command lines, and hence our program can be used to parse, for example, `ls -l | head -n 5 | wc`. While executing multiple pipes, our program implements killing of processes that do not need to run. For example, if the 3rd process in the pipe has ended but the 2nd has not, the 2nd process will be killed. This does not affect the 4th process if any.
 
-We also have support for redirection of an input/output allong with the append version of the same as specified by `<<` or `>>` and the stderror version as well. We can also redirect output of the get command for the environment variable. Similarly, redirection can also be used within pipes when appropriate. 
+FLASH also has support for redirection of an input/output allong with the append version of the same as specified by `<<` or `>>` and the stderror version as well. We can also redirect output of the get command for the environment variable. Similarly, redirection can also be used within pipes when appropriate. 
 
-In out shell, the names of default commands can be used rather than the full path. This is because I have used the PATH environment variable to obtain the final paths for these commands.
+In our shell, the names of default commands can be used rather than the full path. This is because I have used the PATH environment variable to obtain the final paths for these commands.
 
 Our program also supports background execution with the use of `#` at the end of a single command line. Please note that both the `#` and the redirection operators need to be separated by at least one or more spaces from other parts of the command line. Due to lack of time, I could not implement regular expressions for these parts.
