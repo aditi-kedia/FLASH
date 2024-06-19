@@ -18,4 +18,4 @@ We also have support for redirection of an input/output allong with the append v
 
 In out shell, the names of default commands can be used rather than the full path. This is because I have used the PATH environment variable to obtain the final paths for these commands.
 
-Our program also supports background execution with the use of `#` at the end of a single command line. Please not that both the `#` and the redirection operators need to be separated by at least one or more spaces from other parts of the command line. Due to lack of time, I could not implement regular expressions for these parts.
+Our program also supports background execution with the use of `#` at the end of a single command line. Please note that both the `#` and the redirection operators need to be separated by at least one or more spaces from other parts of the command line. Due to lack of time, I could not implement regular expressions for these parts.
